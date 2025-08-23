@@ -540,7 +540,7 @@ def generate_card(user: Dict[str, Any]) -> tuple[bytes, str]:
     scale_factor = W / 1050
     # 按照底图标签字体实际大小调整
     title_font = try_load_font(int(90 * scale_factor))    # 昵称/性别/职业标签字体大小
-    content_font = try_load_font(int(80 * scale_factor))  # 兴趣爱好内容字体
+    content_font = try_load_font(int(100 * scale_factor))  # 兴趣爱好内容字体
     intro_font = try_load_font(int(80 * scale_factor))    # 一句话介绍字体
     
     # 提取字段信息
@@ -566,7 +566,7 @@ def generate_card(user: Dict[str, Any]) -> tuple[bytes, str]:
     
     # 兴趣爱好区域 - 紧贴"兴趣爱好/在做的创业项目"标签下方
     interests_x = int(W * 0.08)
-    interests_y = int(H * 0.56)  # 紧贴标签下方，大幅向上调整
+    interests_y = int(H * 0.58)  # 紧贴标签下方，大幅向上调整
     interests_width = int(W * 1.2)  # 可用宽度
     
     # 一句话介绍区域 - 紧贴"一句话介绍你自己"标签下方  
@@ -574,10 +574,10 @@ def generate_card(user: Dict[str, Any]) -> tuple[bytes, str]:
     intro_y = int(H * 0.87)    # 紧贴标签下方，避免重合
     intro_width = int(W * 1.2) # 可用宽度
     
-    # 微信二维码区域 - 精确覆盖右侧蓝绿色山丘区域
-    qr_x = int(W * 0.71)        # 山丘区域中心偏左
-    qr_y = int(H * 0.28)        # 山丘区域顶部
-    qr_size = int(W * 0.22)     # 适中的正方形尺寸，不超出边界
+    # 微信二维码区域 - 精确覆盖图片！
+    qr_x = int(W * 0.625)        
+    qr_y = int(H * 0.282)        # 山丘区域顶部
+    qr_size = int(W * 0.3)     # 适中的正方形尺寸，不超出边界
     
     # 绘制内容 - 使用更大的字体
     # 1. 昵称 - 使用大字体
