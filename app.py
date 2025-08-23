@@ -172,23 +172,132 @@ def try_load_font(size: int):
                 continue
     return ImageFont.load_default()
 
-def get_wechat_qr_from_attachment(token: str, attachment_id: str) -> Optional[Image.Image]:
-    """通过飞书附件ID获取微信二维码图片"""
-    try:
-        url = f"https://open.feishu.cn/open-apis/drive/v1/files/{attachment_id}/content"
-        headers = {"Authorization": f"Bearer {token}"}
-        r = requests.get(url, headers=headers, timeout=15)
-        r.raise_for_status()
-        
-        # 转换为PIL图片对象
-        im = Image.open(io.BytesIO(r.content)).convert("RGBA")
-        # 调整为方形，适合放在名片上
-        size = 200  # 固定二维码大小
-        im = ImageOps.fit(im, (size, size), method=Image.LANCZOS, centering=(0.5, 0.5))
-        return im
-    except Exception as e:
-        print(f"获取微信二维码失败: {e}")
-        return None
+def detect_attachment_type(attachment_id: str) -> str:
+    """根据附件ID格式检测附件类型"""
+    attachment_id = attachment_id.strip()
+    
+    # 分析ID格式特征
+    if attachment_id.startswith("img_"):
+        return "message_image"  # 消息图片
+    elif attachment_id.startswith("file_"):
+        return "drive_file"  # 云文档文件
+    elif attachment_id.startswith("F") and len(attachment_id) == 27:
+        return "form_attachment"  # 表单附件 (如 Fju1bMfxaoYiBmxHdxcc603GnBc)
+    elif attachment_id.startswith("N") and len(attachment_id) == 27:
+        return "drive_media"  # Drive媒体附件 (如 N7Aibhtm0opQdgxXoNccIwvDnwh)
+    elif len(attachment_id) == 32 and attachment_id.isalnum():
+        return "bitable_attachment"  # 多维表格附件
+    else:
+        return "unknown"
+
+def get_wechat_qr_from_attachment(token: str, attachment_id: str, user_info: Dict[str, Any] = None) -> Optional[Image.Image]:
+    """通过飞书附件ID获取微信二维码图片，支持多种附件类型"""
+    
+    print(f"🔍 分析附件ID: {attachment_id}")
+    attachment_type = detect_attachment_type(attachment_id)
+    print(f"📋 检测到附件类型: {attachment_type}")
+    
+    # 根据检测结果调整API尝试顺序
+    api_attempts = []
+    
+    if attachment_type == "form_attachment":
+        # 表单附件 - 可能需要特殊处理
+        api_attempts.extend([
+            # 尝试作为表单附件
+            f"https://open.feishu.cn/open-apis/ccm/v1/forms/attachments/{attachment_id}",
+            # 尝试作为云文档附件
+            f"https://open.feishu.cn/open-apis/drive/v1/files/{attachment_id}/content",
+            # 尝试作为drive媒体下载
+            f"https://open.feishu.cn/open-apis/drive/v1/medias/{attachment_id}/download",
+        ])
+    elif attachment_type == "message_image":
+        api_attempts.extend([
+            f"https://open.feishu.cn/open-apis/im/v1/images/{attachment_id}",
+        ])
+    elif attachment_type == "drive_file":
+        api_attempts.extend([
+            f"https://open.feishu.cn/open-apis/drive/v1/files/{attachment_id}/content",
+            f"https://open.feishu.cn/open-apis/drive/v1/medias/{attachment_id}/download",
+        ])
+    elif attachment_type == "drive_media":
+        # N开头的媒体附件，尝试不同的API端点
+        api_attempts.extend([
+            f"https://open.feishu.cn/open-apis/drive/v1/medias/{attachment_id}/download",
+            f"https://open.feishu.cn/open-apis/drive/v1/files/{attachment_id}/content",
+            # 尝试作为云空间文件
+            f"https://open.feishu.cn/open-apis/drive/v1/files/{attachment_id}/download",
+        ])
+    elif attachment_type == "bitable_attachment" and user_info and user_info.get("app_token"):
+        api_attempts.extend([
+            f"https://open.feishu.cn/open-apis/bitable/v1/apps/{user_info['app_token']}/tables/{user_info['table_id']}/records/{user_info['record_id']}/attachments/{attachment_id}",
+        ])
+    
+    # 添加通用尝试（作为备选）
+    api_attempts.extend([
+        f"https://open.feishu.cn/open-apis/im/v1/images/{attachment_id}",
+        f"https://open.feishu.cn/open-apis/drive/v1/files/{attachment_id}/content",
+        f"https://open.feishu.cn/open-apis/drive/v1/medias/{attachment_id}/download",
+    ])
+    
+    # 去重
+    api_attempts = list(dict.fromkeys(api_attempts))
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    for i, url in enumerate(api_attempts, 1):
+        try:
+            print(f"🔄 尝试附件API #{i}: {url}")
+            r = requests.get(url, headers=headers, timeout=15)
+            
+            print(f"📊 API #{i} 响应: HTTP {r.status_code}, Content-Type: {r.headers.get('content-type', 'N/A')}")
+            
+            if r.status_code == 200:
+                print(f"✅ 附件API #{i} 成功，内容大小: {len(r.content)} bytes")
+                
+                # 检查内容类型
+                content_type = r.headers.get('content-type', '').lower()
+                
+                # 更严格的图片内容验证
+                if len(r.content) < 100:
+                    print(f"⚠️ 内容太小 ({len(r.content)} bytes)，可能不是图片")
+                    continue
+                
+                if 'json' in content_type:
+                    print(f"⚠️ 返回JSON格式，可能是错误响应: {r.text[:200]}")
+                    continue
+                
+                try:
+                    # 尝试解析为图片
+                    im = Image.open(io.BytesIO(r.content)).convert("RGBA")
+                    print(f"📐 图片尺寸: {im.size}")
+                    
+                    # 调整为方形，适合放在名片上
+                    size = 200  # 固定二维码大小
+                    im = ImageOps.fit(im, (size, size), method=Image.LANCZOS, centering=(0.5, 0.5))
+                    
+                    print(f"✅ 微信二维码获取成功 (API #{i}: {url[:50]}...)")
+                    return im
+                    
+                except Exception as img_error:
+                    print(f"❌ 图片解析失败 (API #{i}): {img_error}")
+                    continue
+                
+            elif r.status_code == 404:
+                print(f"❌ 附件不存在 (API #{i}): HTTP 404")
+            elif r.status_code == 403:
+                print(f"❌ 权限不足 (API #{i}): HTTP 403")
+            elif r.status_code == 401:
+                print(f"❌ 认证失败 (API #{i}): HTTP 401")
+            else:
+                print(f"❌ 附件API #{i} 失败: HTTP {r.status_code}, 响应: {r.text[:100]}")
+                
+        except Exception as e:
+            print(f"❌ 附件API #{i} 异常: {e}")
+            continue
+    
+    print(f"❌ 所有 {len(api_attempts)} 个附件API都失败")
+    print(f"💡 建议检查: 1) attachment_id有效性 2) 飞书应用权限 3) 附件来源类型")
+    return None
 
 
 # ----------------------- Card generator -----------------------
@@ -498,7 +607,7 @@ def hook():
     if user.get("wechatQrAttachmentId") and APP_ID and APP_SECRET:
         try:
             token = get_tenant_access_token()
-            wechat_qr_image = get_wechat_qr_from_attachment(token, user["wechatQrAttachmentId"])
+            wechat_qr_image = get_wechat_qr_from_attachment(token, user["wechatQrAttachmentId"], user)
             user["wechat_qr_image"] = wechat_qr_image
         except Exception as e:
             print(f"获取微信二维码失败: {e}")
