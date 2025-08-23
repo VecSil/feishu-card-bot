@@ -119,136 +119,137 @@ def safe_filename(s: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_\-\u4e00-\u9fa5]", "", s)
 
 def try_load_font(size: int):
-    # Try common Chinese fonts on macOS/Linux/Windows; fallback to default
-    candidates = [
+    # 优先使用项目字体文件，简化字体加载逻辑
+    font_path = os.path.join(ASSETS_DIR, "font.ttf")
+    if os.path.exists(font_path):
+        try:
+            return ImageFont.truetype(font_path, size=size)
+        except Exception:
+            pass
+    # 备用系统字体
+    system_fonts = [
         "/System/Library/Fonts/PingFang.ttc",  # macOS
-        "/System/Library/Fonts/STHeiti Light.ttc",
-        "/System/Library/Fonts/Hiragino Sans GB W3.otf",
-        "/Library/Fonts/Arial Unicode.ttf",
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/truetype/noto/NotoSansSC-Regular.ttf",
-        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
-        os.path.join(ASSETS_DIR, "NotoSansSC-Regular.otf"),
+        "/usr/share/fonts/truetype/noto/NotoSansSC-Regular.ttf",  # Linux
     ]
-    for path in candidates:
+    for path in system_fonts:
         if os.path.exists(path):
             try:
-                # PIL supports .ttc by specifying index optional (default 0)
                 return ImageFont.truetype(path, size=size)
             except Exception:
                 continue
-    # last resort
     return ImageFont.load_default()
 
-def fetch_image_sq(url: str, size: int) -> Optional[Image.Image]:
+def get_wechat_qr_from_attachment(token: str, attachment_id: str) -> Optional[Image.Image]:
+    """通过飞书附件ID获取微信二维码图片"""
     try:
-        r = requests.get(url, timeout=10)
+        url = f"https://open.feishu.cn/open-apis/drive/v1/files/{attachment_id}/content"
+        headers = {"Authorization": f"Bearer {token}"}
+        r = requests.get(url, headers=headers, timeout=15)
         r.raise_for_status()
+        
+        # 转换为PIL图片对象
         im = Image.open(io.BytesIO(r.content)).convert("RGBA")
-        # make square thumb
-        min_side = min(im.size)
+        # 调整为方形，适合放在名片上
+        size = 200  # 固定二维码大小
         im = ImageOps.fit(im, (size, size), method=Image.LANCZOS, centering=(0.5, 0.5))
         return im
-    except Exception:
+    except Exception as e:
+        print(f"获取微信二维码失败: {e}")
         return None
 
-def make_qr(data: str, size: int=280) -> Optional[Image.Image]:
-    if not qrcode or not data:
-        return None
-    qr = qrcode.QRCode(box_size=10, border=1, error_correction=qrcode.constants.ERROR_CORRECT_M)
-    qr.add_data(data)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white").convert("RGBA")
-    img = img.resize((size, size), Image.LANCZOS)
-    return img
 
 # ----------------------- Card generator -----------------------
 def generate_card(user: Dict[str, Any]) -> (bytes, str):
-    """
-    user keys we try to use:
-      name/姓名, title/职位, company/公司, phone/电话, email/邮箱, avatar_url, qrcode_url, qrcode_text
-    """
-    # Load template or create a simple one
-    W, H = 1050, 600  # print-quality-ish (3.5x2.0 inch @300dpi)
-    if os.path.exists(TEMPLATE_PATH):
-        base = Image.open(TEMPLATE_PATH).convert("RGBA").resize((W, H), Image.LANCZOS)
-    else:
-        # Create a clean gradient background
-        base = Image.new("RGBA", (W, H), "#F6F7FB")
-        draw_tmp = ImageDraw.Draw(base)
-        for y in range(H):
-            g = int(246 + (y/H)*6)  # subtle gradient
-            draw_tmp.line([(0, y), (W, y)], fill=(g, g, g, 255))
-
+    """根据用户信息和MBTI生成个性化名片"""
+    # 获取MBTI类型并选择对应底图
+    mbti = user.get("mbti", "INFP").upper().strip()
+    if mbti not in ["ENFJ", "ENFP", "ENTJ", "ENTP", "ESFJ", "ESFP", "ESTJ", "ESTP", 
+                   "INFJ", "INFP", "INTJ", "INTP", "ISFJ", "ISFP", "ISTJ", "ISTP"]:
+        mbti = "INFP"  # 默认类型
+    
+    # 加载MBTI底图
+    template_path = os.path.join(ASSETS_DIR, f"{mbti}.png")
+    if not os.path.exists(template_path):
+        raise RuntimeError(f"MBTI底图不存在: {template_path}")
+    
+    base = Image.open(template_path).convert("RGBA")
+    W, H = base.size
     draw = ImageDraw.Draw(base)
-    # Fonts
-    name_font = try_load_font(64)
-    big_font = try_load_font(36)
-    small_font = try_load_font(28)
-
-    # Content
-    name = user.get("name") or user.get("姓名") or "未命名"
-    title = user.get("title") or user.get("职位") or ""
-    company = user.get("company") or user.get("公司") or ""
-    phone = user.get("phone") or user.get("电话") or ""
-    email = user.get("email") or user.get("邮箱") or ""
-    avatar_url = user.get("avatar_url") or user.get("头像") or ""
-    qrcode_url = user.get("qrcode_url") or user.get("二维码") or ""
-    qrcode_text = user.get("qrcode_text") or ""
-
-    # Layout metrics
-    padding = 50
-    left_col_x = padding
-    right_col_x = W - padding - 280  # space for QR
-    center_y = H // 2
-
-    # Avatar (circle) on left
-    AVATAR_SIZE = 160
-    if avatar_url:
-        av = fetch_image_sq(avatar_url, AVATAR_SIZE)
+    
+    # 加载字体
+    name_font = try_load_font(48)
+    big_font = try_load_font(32) 
+    medium_font = try_load_font(24)
+    small_font = try_load_font(20)
+    
+    # 提取字段信息
+    nickname = user.get("nickname", "未命名")
+    gender = user.get("gender", "")
+    profession = user.get("profession", "")
+    interests = user.get("interests", "")
+    introduction = user.get("introduction", "")
+    wechat_qr = user.get("wechat_qr_image")  # PIL图片对象
+    
+    # 定义布局位置（基于常见名片尺寸调整）
+    padding = 40
+    
+    # 左上：昵称（大字体）
+    draw.text((padding, padding), nickname, font=name_font, fill="#2C3E50", anchor="lt")
+    
+    # 左中：性别 + 职业
+    y_pos = padding + 80
+    if gender and profession:
+        gender_profession = f"{gender} · {profession}"
+    elif gender or profession:
+        gender_profession = gender or profession
     else:
-        av = None
-    if av is not None:
-        # circular mask
-        mask = Image.new("L", (AVATAR_SIZE, AVATAR_SIZE), 0)
-        ImageDraw.Draw(mask).ellipse((0, 0, AVATAR_SIZE-1, AVATAR_SIZE-1), fill=255)
-        base.paste(av, (left_col_x, padding), mask)
-
-    # Name + title + company
-    text_x = left_col_x + (AVATAR_SIZE + 24 if av else 0)
-    draw.text((text_x, padding), name, font=name_font, fill="#0F172A")  # slate-900
-    y = padding + 80
-    if company or title:
-        draw.text((text_x, y), " · ".join([x for x in [company, title] if x]), font=big_font, fill="#334155")
-        y += 50
-    # Contacts
-    if phone:
-        draw.text((text_x, y), f"📞 {phone}", font=small_font, fill="#475569"); y += 40
-    if email:
-        draw.text((text_x, y), f"✉️ {email}", font=small_font, fill="#475569"); y += 40
-
-    # QR on right
-    qr_img = None
-    if qrcode_url:
-        qr_img = make_qr(qrcode_url, size=280)
-    elif qrcode_text:
-        qr_img = make_qr(qrcode_text, size=280)
-    if qr_img:
-        base.paste(qr_img, (right_col_x, center_y - 140), qr_img)
-
-    # Footer stripe
-    footer_h = 60
-    footer = Image.new("RGBA", (W, footer_h), "#111827")  # neutral dark
-    base.paste(footer, (0, H - footer_h), footer)
-    draw = ImageDraw.Draw(base)
-    draw.text((padding, H - footer_h + 16), "Auto-generated via Feishu Card Bot", font=small_font, fill="#E5E7EB")
-
-    # Save bytes & file path
+        gender_profession = ""
+    if gender_profession:
+        draw.text((padding, y_pos), gender_profession, font=big_font, fill="#34495E", anchor="lt")
+        y_pos += 50
+    
+    # 左下：兴趣爱好
+    if interests:
+        # 处理长文本换行
+        wrapped_interests = textwrap.fill(interests, width=20)
+        draw.text((padding, y_pos), f"兴趣：{wrapped_interests}", font=medium_font, fill="#7F8C8D")
+        y_pos += 80
+    
+    # 右上：MBTI标识
+    mbti_x = W - padding - 120
+    draw.text((mbti_x, padding), mbti, font=name_font, fill="#E74C3C", anchor="rt")
+    
+    # 右中：一句话介绍
+    if introduction:
+        intro_y = padding + 100
+        wrapped_intro = textwrap.fill(introduction, width=15)
+        # 计算右对齐位置（不使用anchor，因为多行文本不支持）
+        lines = wrapped_intro.split('\n')
+        for i, line in enumerate(lines):
+            line_width = draw.textlength(line, font=medium_font)
+            line_x = mbti_x - line_width
+            line_y = intro_y + i * 30
+            draw.text((line_x, line_y), line, font=medium_font, fill="#2C3E50")
+    
+    # 右下：微信二维码
+    if wechat_qr:
+        qr_x = W - padding - 200
+        qr_y = H - padding - 200
+        base.paste(wechat_qr, (qr_x, qr_y), wechat_qr)
+        # 添加"微信"标签
+        label_text = "微信"
+        label_width = draw.textlength(label_text, font=small_font)
+        label_x = qr_x + 100 - label_width // 2
+        draw.text((label_x, qr_y + 210), label_text, font=small_font, fill="#95A5A6")
+    
+    # 保存文件
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    base_filename = f"{ts}_{safe_filename(name)}.png"
+    base_filename = f"{ts}_{safe_filename(nickname)}.png"
     out_path = os.path.join(OUTPUT_DIR, base_filename)
     base.convert("RGB").save(out_path, "PNG", optimize=True)
+    
+    # 返回字节流
     buf = io.BytesIO()
     base.convert("RGB").save(buf, "PNG", optimize=True)
     buf.seek(0)
@@ -256,44 +257,18 @@ def generate_card(user: Dict[str, Any]) -> (bytes, str):
 
 # ----------------------- Payload parser -----------------------
 def extract_user_info(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Try to be forgiving about field names and shapes.
-    Supports simple flat JSON or Feishu Base event-ish shapes.
-    """
-    data = {}
-    # Direct mapping
-    for k in ["name","姓名","title","职位","company","公司","phone","电话","email","邮箱","avatar_url","头像","qrcode_url","二维码","qrcode_text","open_id","user_open_id","user_email","email"]:
-        if k in payload:
-            data[k] = payload[k]
-
-    # Common wrappers
-    if "fields" in payload and isinstance(payload["fields"], dict):
-        data.update(payload["fields"])
-
-    # Feishu event style
-    event = payload.get("event") or {}
-    operator = event.get("operator") or {}
-    if operator.get("open_id"):
-        data["open_id"] = operator["open_id"]
-
-    # Bitable "after_change" fields
-    after_fields = (event.get("after_change") or {}).get("fields") or {}
-    if isinstance(after_fields, dict):
-        data.update(after_fields)
-
-    # Normalize keys
-    normalized = {
-        "name": data.get("name") or data.get("姓名"),
-        "title": data.get("title") or data.get("职位"),
-        "company": data.get("company") or data.get("公司"),
-        "phone": data.get("phone") or data.get("电话"),
-        "email": data.get("email") or data.get("邮箱") or data.get("user_email"),
-        "avatar_url": data.get("avatar_url") or data.get("头像"),
-        "qrcode_url": data.get("qrcode_url") or data.get("二维码"),
-        "qrcode_text": data.get("qrcode_text"),
-        "open_id": data.get("open_id") or data.get("user_open_id"),
+    """简化的用户信息提取，直接处理6字段JSON格式"""
+    # 直接从JSON中提取所需字段
+    user_info = {
+        "nickname": payload.get("nickname", "").strip(),
+        "gender": payload.get("gender", "").strip(), 
+        "profession": payload.get("profession", "").strip(),
+        "interests": payload.get("interests", "").strip(),
+        "mbti": payload.get("mbti", "").strip(),
+        "introduction": payload.get("introduction", "").strip(),
+        "wechatQrAttachmentId": payload.get("wechatQrAttachmentId", "").strip()
     }
-    return normalized
+    return user_info
 
 def get_feishu_setup_suggestions(send_result):
     """根据飞书API响应生成智能配置建议"""
@@ -321,7 +296,7 @@ def healthz():
 
 @app.route("/image/<path:filename>", methods=["GET"])
 def serve_image(filename):
-    """直接访问生成的名片图片"""
+    """直接访问生成的名片图片（本地文件）"""
     try:
         # URL解码文件名以支持中文
         decoded_filename = unquote(filename)
@@ -339,33 +314,116 @@ def serve_image(filename):
     except Exception as e:
         return jsonify({"error": "serve_image_failed", "detail": str(e)}), 500
 
-@app.route("/hook", methods=["POST"])
+@app.route("/feishu-image/<image_key>", methods=["GET"])
+def serve_feishu_image(image_key):
+    """通过飞书API代理访问云端图片"""
+    try:
+        print(f"🔍 请求飞书图片: {image_key}")
+        
+        # 获取飞书访问token
+        if not APP_ID or not APP_SECRET:
+            return jsonify({"error": "feishu_not_configured", "detail": "飞书应用未配置"}), 500
+            
+        token = get_tenant_access_token()
+        
+        # 调用飞书图片下载API
+        url = f"https://open.feishu.cn/open-apis/im/v1/images/{image_key}"
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        print(f"📥 从飞书获取图片: {url}")
+        r = requests.get(url, headers=headers, timeout=15)
+        
+        if r.status_code == 200:
+            print(f"✅ 飞书图片获取成功: {len(r.content)} bytes")
+            # 直接返回飞书的图片内容
+            response = app.response_class(
+                r.content,
+                mimetype="image/png",
+                headers={
+                    "Cache-Control": "public, max-age=3600",  # 缓存1小时
+                    "Content-Disposition": f'inline; filename="feishu-card-{image_key}.png"'
+                }
+            )
+            return response
+        else:
+            print(f"❌ 飞书图片获取失败: {r.status_code} - {r.text}")
+            return jsonify({
+                "error": "feishu_image_not_found", 
+                "detail": f"飞书API返回: {r.status_code}",
+                "image_key": image_key
+            }), 404
+            
+    except Exception as e:
+        print(f"❌ 飞书图片代理异常: {e}")
+        return jsonify({
+            "error": "feishu_proxy_failed", 
+            "detail": str(e),
+            "image_key": image_key
+        }), 500
+
+@app.route("/hook", methods=["GET", "POST"])
 def hook():
+    # 记录请求详细信息用于调试
+    print(f"🔍 收到请求: {request.method} {request.url}")
+    print(f"📋 请求头: {dict(request.headers)}")
+    print(f"🌐 客户端IP: {request.remote_addr}")
+    print(f"📝 Content-Type: {request.content_type}")
+    
+    # 处理GET请求（飞书可能的预检查）
+    if request.method == "GET":
+        return jsonify({
+            "status": "ok",
+            "message": "飞书MBTI名片生成服务运行中",
+            "methods_supported": ["GET", "POST"],
+            "webhook_endpoint": "/hook",
+            "health_endpoint": "/healthz",
+            "version": "2.0",
+            "features": {
+                "mbti_types": 16,
+                "fields_supported": ["nickname", "gender", "profession", "interests", "mbti", "introduction"],
+                "wechat_qr_support": True,
+                "image_formats": ["PNG"],
+                "feishu_integration": bool(APP_ID and APP_SECRET)
+            }
+        })
+    
+    # 处理POST请求（实际的webhook数据）
     # 支持多种请求格式：JSON, form-data, form-urlencoded
     payload = {}
     
     try:
+        print(f"📦 开始解析POST数据...")
         # 尝试解析JSON格式
         if request.content_type and 'application/json' in request.content_type:
             payload = request.get_json(force=True, silent=False) or {}
+            print(f"✅ JSON数据解析成功: {len(str(payload))} 字符")
         # 处理表单数据格式（multipart/form-data 或 application/x-www-form-urlencoded）
         elif request.form:
             payload = dict(request.form)
+            print(f"✅ Form数据解析成功: {len(payload)} 个字段")
         # 处理原始数据
         elif request.get_data():
             # 尝试解析为JSON
+            raw_data = request.get_data().decode('utf-8')
+            print(f"📄 原始数据: {raw_data[:200]}...")
             try:
-                import json
-                payload = json.loads(request.get_data().decode('utf-8'))
+                import json as json_module
+                payload = json_module.loads(raw_data)
+                print(f"✅ 原始JSON解析成功")
             except:
                 # 如果不是JSON，返回错误信息用于调试
+                print(f"❌ 无法解析为JSON格式")
                 return jsonify({
                     "error": "unsupported_format", 
                     "detail": f"Content-Type: {request.content_type}",
-                    "raw_data": request.get_data().decode('utf-8')[:200]
+                    "raw_data": raw_data[:200]
                 }), 400
         else:
+            print(f"❌ 未收到任何数据")
             return jsonify({"error": "empty_request", "detail": "No data received"}), 400
+        
+        # 打印解析后的数据用于调试
+        print(f"🎯 解析后的payload: {json.dumps(payload, ensure_ascii=False, indent=2) if payload else 'Empty'}")
             
     except Exception as e:
         return jsonify({
@@ -376,25 +434,37 @@ def hook():
         }), 400
 
     user = extract_user_info(payload)
-    # 1) Generate card
+    
+    # 1) 获取微信二维码图片（如果有attachment_id）
+    wechat_qr_image = None
+    if user.get("wechatQrAttachmentId") and APP_ID and APP_SECRET:
+        try:
+            token = get_tenant_access_token()
+            wechat_qr_image = get_wechat_qr_from_attachment(token, user["wechatQrAttachmentId"])
+            user["wechat_qr_image"] = wechat_qr_image
+        except Exception as e:
+            print(f"获取微信二维码失败: {e}")
+    
+    # 2) Generate card
     try:
         png_bytes, saved_path = generate_card(user)
     except Exception as e:
         return jsonify({"error": "render_failed", "detail": str(e)}), 500
 
-    # 2) 生成图片访问URL（不依赖飞书上传）
+    # 3) 生成本地备用URL
     image_filename = os.path.basename(saved_path)
     # URL编码文件名以支持中文
     encoded_filename = quote(image_filename)
-    # 使用ngrok URL（强制HTTPS）
+    # 生成本地访问URL作为备用
     if 'ngrok' in request.host:
-        image_url = f"https://{request.host}/image/{encoded_filename}"
+        local_image_url = f"https://{request.host}/image/{encoded_filename}"
     else:
         base_url = request.url_root.rstrip('/')
-        image_url = f"{base_url}/image/{encoded_filename}"
+        local_image_url = f"{base_url}/image/{encoded_filename}"
 
-    # 3) 尝试上传到飞书（如果有权限）
+    # 4) 尝试上传到飞书并生成飞书代理URL（推荐）
     image_key = None
+    image_url = local_image_url  # 默认使用本地URL
     send_result = None
     feishu_enabled = bool(APP_ID and APP_SECRET)
     
@@ -402,6 +472,15 @@ def hook():
         try:
             token = get_tenant_access_token()
             image_key = upload_image_to_feishu(token, png_bytes)
+            
+            # 生成飞书代理URL（优先使用）
+            if 'ngrok' in request.host:
+                image_url = f"https://{request.host}/feishu-image/{image_key}"
+            else:
+                base_url = request.url_root.rstrip('/')
+                image_url = f"{base_url}/feishu-image/{image_key}"
+            
+            print(f"✅ 优先使用飞书代理URL: {image_url}")
 
             # Determine receiver open_id
             recv_open_id = DEBUG_OPEN_ID or user.get("open_id")
@@ -415,22 +494,36 @@ def hook():
     else:
         send_result = {"info": "feishu_disabled: APP_ID or APP_SECRET not configured"}
 
-    # 4) Support returning PNG directly if client requests it
+    # 5) Support returning PNG directly if client requests it
     if request.args.get("format") == "png":
         return send_file(io.BytesIO(png_bytes), mimetype="image/png", as_attachment=False, download_name="card.png")
 
-    return jsonify({
+    # 构建响应数据
+    response_data = {
         "status": "ok",
         "saved_path": os.path.abspath(saved_path),
-        "image_url": image_url,  # 新增：本地图片访问URL
+        "image_url": image_url,  # 优先使用飞书代理URL
         "image_key": image_key,
         "send_result": send_result,
         "suggestions": {
             "view_image": f"访问 {image_url} 查看生成的名片",
-            "download_png": f"访问 {image_url}?format=png 下载名片",
             "feishu_setup": get_feishu_setup_suggestions(send_result)
         }
-    })
+    }
+    
+    # 如果有飞书代理URL，提供更多选项
+    if image_key and feishu_enabled:
+        response_data["local_image_url"] = local_image_url  # 本地备用URL
+        response_data["suggestions"].update({
+            "feishu_cloud": f"访问 {image_url} 查看云端名片（推荐）",
+            "local_backup": f"访问 {local_image_url} 查看本地备份",
+            "download_png": f"访问 {local_image_url}?format=png 下载名片"
+        })
+    else:
+        # 无飞书时使用本地URL
+        response_data["suggestions"]["download_png"] = f"访问 {image_url}?format=png 下载名片"
+    
+    return jsonify(response_data)
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "3000"))
