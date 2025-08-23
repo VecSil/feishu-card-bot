@@ -19,6 +19,7 @@ from typing import Dict, Any, Optional
 
 import requests
 from flask import Flask, request, jsonify, send_file
+from urllib.parse import quote, unquote
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 try:
     import qrcode
@@ -74,14 +75,31 @@ def batch_get_open_id_by_email_or_mobile(token: str, email: Optional[str]=None, 
 def upload_image_to_feishu(token: str, image_bytes: bytes) -> str:
     url = "https://open.feishu.cn/open-apis/im/v1/images"
     headers = {"Authorization": f"Bearer {token}"}
+    
+    # 修复：image_type应该作为form-data字段，不是URL参数
+    data = {"image_type": "message"}
     files = {"image": ("card.png", image_bytes, "image/png")}
-    params = {"image_type": "message"}
-    r = requests.post(url, headers=headers, files=files, params=params, timeout=20)
-    r.raise_for_status()
-    data = r.json()
-    if data.get("code") != 0:
-        raise RuntimeError(f"Upload image failed: {data}")
-    return data["data"]["image_key"]
+    
+    # 记录请求详细信息用于调试
+    print(f"Debug: 上传图片到飞书 - 图片大小: {len(image_bytes)} bytes")
+    print(f"Debug: 修复参数格式 - image_type作为form-data字段")
+    
+    r = requests.post(url, headers=headers, files=files, data=data, timeout=20)
+    
+    # 详细记录响应信息
+    print(f"Debug: 飞书API响应状态码: {r.status_code}")
+    print(f"Debug: 飞书API响应内容: {r.text}")
+    
+    try:
+        response_data = r.json()
+        if response_data.get("code") != 0:
+            raise RuntimeError(f"Upload image failed - Code: {response_data.get('code')}, Message: {response_data.get('msg')}, Details: {response_data}")
+        return response_data["data"]["image_key"]
+    except ValueError as e:
+        # 如果响应不是JSON格式
+        raise RuntimeError(f"Upload image failed - Invalid JSON response: {r.text}, Status: {r.status_code}")
+    except Exception as e:
+        raise RuntimeError(f"Upload image failed - Status: {r.status_code}, Response: {r.text}, Error: {str(e)}")
 
 def send_image_message_to_open_id(token: str, open_id: str, image_key: str) -> Dict[str, Any]:
     url = "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=open_id"
@@ -277,17 +295,85 @@ def extract_user_info(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
     return normalized
 
+def get_feishu_setup_suggestions(send_result):
+    """根据飞书API响应生成智能配置建议"""
+    if not send_result or "warn" not in send_result:
+        return "飞书集成正常工作"
+    
+    error_message = send_result.get("warn", "")
+    
+    # 分析不同的错误代码并提供对应建议
+    if "99991672" in error_message:
+        return "需要权限: 访问 https://open.feishu.cn/app/ → 权限管理 → 添加 im:resource:upload 权限"
+    elif "234001" in error_message:
+        return "参数错误: 系统已自动修复，请重试"
+    elif "234007" in error_message:
+        return "机器人未启用: 访问 https://open.feishu.cn/app/ → 应用功能 → 机器人 → 启用机器人"
+    elif "feishu_disabled" in error_message:
+        return "飞书未配置: 请设置环境变量 FEISHU_APP_ID 和 FEISHU_APP_SECRET"
+    else:
+        return f"飞书配置需要完善: {error_message[:100]}..."
+
 # ----------------------- Flask routes -----------------------
 @app.route("/healthz", methods=["GET"])
 def healthz():
     return jsonify({"ok": True})
 
+@app.route("/image/<path:filename>", methods=["GET"])
+def serve_image(filename):
+    """直接访问生成的名片图片"""
+    try:
+        # URL解码文件名以支持中文
+        decoded_filename = unquote(filename)
+        image_path = os.path.join(OUTPUT_DIR, decoded_filename)
+        
+        if not os.path.exists(image_path):
+            return jsonify({"error": "image_not_found", "filename": decoded_filename}), 404
+        
+        # 检查是否请求PNG下载格式
+        if request.args.get("format") == "png":
+            return send_file(image_path, mimetype="image/png", as_attachment=True, download_name=decoded_filename)
+        
+        # 默认在浏览器中显示
+        return send_file(image_path, mimetype="image/png")
+    except Exception as e:
+        return jsonify({"error": "serve_image_failed", "detail": str(e)}), 500
+
 @app.route("/hook", methods=["POST"])
 def hook():
+    # 支持多种请求格式：JSON, form-data, form-urlencoded
+    payload = {}
+    
     try:
-        payload = request.get_json(force=True, silent=False) or {}
+        # 尝试解析JSON格式
+        if request.content_type and 'application/json' in request.content_type:
+            payload = request.get_json(force=True, silent=False) or {}
+        # 处理表单数据格式（multipart/form-data 或 application/x-www-form-urlencoded）
+        elif request.form:
+            payload = dict(request.form)
+        # 处理原始数据
+        elif request.get_data():
+            # 尝试解析为JSON
+            try:
+                import json
+                payload = json.loads(request.get_data().decode('utf-8'))
+            except:
+                # 如果不是JSON，返回错误信息用于调试
+                return jsonify({
+                    "error": "unsupported_format", 
+                    "detail": f"Content-Type: {request.content_type}",
+                    "raw_data": request.get_data().decode('utf-8')[:200]
+                }), 400
+        else:
+            return jsonify({"error": "empty_request", "detail": "No data received"}), 400
+            
     except Exception as e:
-        return jsonify({"error": "invalid_json", "detail": str(e)}), 400
+        return jsonify({
+            "error": "parse_failed", 
+            "detail": str(e),
+            "content_type": request.content_type,
+            "form_data": dict(request.form) if request.form else None
+        }), 400
 
     user = extract_user_info(payload)
     # 1) Generate card
@@ -296,33 +382,54 @@ def hook():
     except Exception as e:
         return jsonify({"error": "render_failed", "detail": str(e)}), 500
 
-    # 2) Upload to Feishu and optionally send DM
+    # 2) 生成图片访问URL（不依赖飞书上传）
+    image_filename = os.path.basename(saved_path)
+    # URL编码文件名以支持中文
+    encoded_filename = quote(image_filename)
+    # 使用ngrok URL（强制HTTPS）
+    if 'ngrok' in request.host:
+        image_url = f"https://{request.host}/image/{encoded_filename}"
+    else:
+        base_url = request.url_root.rstrip('/')
+        image_url = f"{base_url}/image/{encoded_filename}"
+
+    # 3) 尝试上传到飞书（如果有权限）
     image_key = None
     send_result = None
-    try:
-        token = get_tenant_access_token()
-        image_key = upload_image_to_feishu(token, png_bytes)
+    feishu_enabled = bool(APP_ID and APP_SECRET)
+    
+    if feishu_enabled:
+        try:
+            token = get_tenant_access_token()
+            image_key = upload_image_to_feishu(token, png_bytes)
 
-        # Determine receiver open_id
-        recv_open_id = DEBUG_OPEN_ID or user.get("open_id")
-        if not recv_open_id and user.get("email"):
-            recv_open_id = batch_get_open_id_by_email_or_mobile(token, email=user["email"])
+            # Determine receiver open_id
+            recv_open_id = DEBUG_OPEN_ID or user.get("open_id")
+            if not recv_open_id and user.get("email"):
+                recv_open_id = batch_get_open_id_by_email_or_mobile(token, email=user["email"])
 
-        if recv_open_id:
-            send_result = send_image_message_to_open_id(token, recv_open_id, image_key)
-    except Exception as e:
-        # We'll still return successfully with the saved image path
-        send_result = {"warn": f"upload_or_send_failed: {e}"}
+            if recv_open_id:
+                send_result = send_image_message_to_open_id(token, recv_open_id, image_key)
+        except Exception as e:
+            send_result = {"warn": f"feishu_upload_failed: {e}"}
+    else:
+        send_result = {"info": "feishu_disabled: APP_ID or APP_SECRET not configured"}
 
-    # 3) Support returning PNG directly if client requests it
+    # 4) Support returning PNG directly if client requests it
     if request.args.get("format") == "png":
         return send_file(io.BytesIO(png_bytes), mimetype="image/png", as_attachment=False, download_name="card.png")
 
     return jsonify({
         "status": "ok",
         "saved_path": os.path.abspath(saved_path),
+        "image_url": image_url,  # 新增：本地图片访问URL
         "image_key": image_key,
-        "send_result": send_result
+        "send_result": send_result,
+        "suggestions": {
+            "view_image": f"访问 {image_url} 查看生成的名片",
+            "download_png": f"访问 {image_url}?format=png 下载名片",
+            "feishu_setup": get_feishu_setup_suggestions(send_result)
+        }
     })
 
 if __name__ == "__main__":

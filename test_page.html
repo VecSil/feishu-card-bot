@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏠 飞书名片生成器 - 本地测试</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            align-items: start;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            grid-column: 1 / -1;
+            font-size: 2.5em;
+            font-weight: 600;
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 25px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+            color: white;
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #FF9800, #F57C00);
+            color: white;
+        }
+
+        .btn-test {
+            background: linear-gradient(135deg, #9C27B0, #7B1FA2);
+            color: white;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .result {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .result.error {
+            background: #fff5f5;
+            border-left-color: #f56565;
+        }
+
+        .result h3 {
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+
+        .result pre {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+            border: 1px solid #e2e8f0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-ok {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .quick-fill {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .quick-fill button {
+            padding: 6px 12px;
+            font-size: 12px;
+            background: #e9ecef;
+            color: #495057;
+            border: 1px solid #ced4da;
+            flex: none;
+        }
+
+        .quick-fill button:hover {
+            background: #f8f9fa;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .health-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏠 飞书名片生成器 - 本地测试</h1>
+        
+        <div class="card">
+            <h2>📝 名片信息填写</h2>
+            
+            <div class="health-status" id="healthStatus">
+                <span class="status-loading">🔄</span>
+                <span>正在检查服务状态...</span>
+            </div>
+
+            <div class="quick-fill">
+                <button type="button" onclick="fillDemo1()">张三示例</button>
+                <button type="button" onclick="fillDemo2()">李四示例</button>
+                <button type="button" onclick="fillDemo3()">王五示例</button>
+                <button type="button" onclick="clearForm()">清空</button>
+            </div>
+            
+            <form id="cardForm">
+                <div class="form-group">
+                    <label for="name">姓名 *</label>
+                    <input type="text" id="name" required placeholder="请输入姓名">
+                </div>
+                
+                <div class="form-group">
+                    <label for="title">职位</label>
+                    <input type="text" id="title" placeholder="如：产品经理、高级工程师">
+                </div>
+                
+                <div class="form-group">
+                    <label for="company">公司</label>
+                    <input type="text" id="company" placeholder="如：创新科技有限公司">
+                </div>
+                
+                <div class="form-group">
+                    <label for="phone">电话</label>
+                    <input type="tel" id="phone" placeholder="如：13800138000">
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">邮箱</label>
+                    <input type="email" id="email" placeholder="如：zhangsan@company.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="avatar_url">头像链接 (可选)</label>
+                    <input type="url" id="avatar_url" placeholder="https://example.com/avatar.jpg">
+                </div>
+                
+                <div class="form-group">
+                    <label for="qrcode_text">二维码内容 (可选)</label>
+                    <input type="text" id="qrcode_text" placeholder="个人主页、微信等链接">
+                </div>
+                
+                <div class="button-group">
+                    <button type="button" class="btn-primary" onclick="generateCard()" id="generateBtn">
+                        <span>🎨</span> 生成名片
+                    </button>
+                    <button type="button" class="btn-secondary" onclick="generatePNG()" id="pngBtn">
+                        <span>🖼️</span> 直接获取PNG
+                    </button>
+                    <button type="button" class="btn-info" onclick="checkHealth()" id="healthBtn">
+                        <span>🏥</span> 健康检查
+                    </button>
+                    <button type="button" class="btn-test" onclick="runBatchTest()" id="batchBtn">
+                        <span>🧪</span> 批量测试
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>📊 测试结果</h2>
+            <div id="result" style="display: none;"></div>
+            <div id="defaultInfo">
+                <p style="color: #6c757d; text-align: center; padding: 40px 0;">
+                    填写左侧信息后点击按钮查看结果<br>
+                    <small>确保Flask服务正在 localhost:3000 运行</small>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isServiceHealthy = false;
+
+        // 页面加载时检查服务状态
+        window.addEventListener('load', function() {
+            checkHealth();
+        });
+
+        // 检查服务健康状态
+        async function checkHealth() {
+            const healthStatus = document.getElementById('healthStatus');
+            const healthBtn = document.getElementById('healthBtn');
+            
+            healthStatus.innerHTML = '<span class="status-loading">🔄</span><span>检查中...</span>';
+            healthBtn.disabled = true;
+            
+            try {
+                const response = await fetch('http://localhost:3000/healthz', {
+                    method: 'GET',
+                    timeout: 5000
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.ok) {
+                        isServiceHealthy = true;
+                        healthStatus.innerHTML = '<span class="status-ok">✅</span><span>服务正常运行</span>';
+                        enableAllButtons();
+                    } else {
+                        throw new Error('服务响应异常');
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                isServiceHealthy = false;
+                healthStatus.innerHTML = '<span class="status-error">❌</span><span>服务不可用 - ' + error.message + '</span>';
+                disableAllButtons();
+                showResult('请先启动Flask服务：./start.sh (选择选项2)', null, true);
+            }
+            
+            healthBtn.disabled = false;
+        }
+
+        // 启用所有按钮
+        function enableAllButtons() {
+            document.getElementById('generateBtn').disabled = false;
+            document.getElementById('pngBtn').disabled = false;
+            document.getElementById('batchBtn').disabled = false;
+        }
+
+        // 禁用所有按钮
+        function disableAllButtons() {
+            document.getElementById('generateBtn').disabled = true;
+            document.getElementById('pngBtn').disabled = true;
+            document.getElementById('batchBtn').disabled = true;
+        }
+
+        // 生成名片（JSON响应）
+        async function generateCard() {
+            if (!isServiceHealthy) {
+                alert('服务不可用，请先检查健康状态');
+                return;
+            }
+
+            const data = getFormData();
+            if (!data.name) {
+                alert('请至少填写姓名');
+                return;
+            }
+            
+            const generateBtn = document.getElementById('generateBtn');
+            generateBtn.innerHTML = '<span class="loading"></span> 生成中...';
+            generateBtn.disabled = true;
+            
+            try {
+                const response = await fetch('http://localhost:3000/hook', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showResult('名片生成成功', result, false);
+                } else {
+                    showResult('生成失败', result, true);
+                }
+            } catch (error) {
+                showResult('请求失败', {error: error.message}, true);
+            }
+            
+            generateBtn.innerHTML = '<span>🎨</span> 生成名片';
+            generateBtn.disabled = false;
+        }
+
+        // 直接获取PNG
+        async function generatePNG() {
+            if (!isServiceHealthy) {
+                alert('服务不可用，请先检查健康状态');
+                return;
+            }
+
+            const data = getFormData();
+            if (!data.name) {
+                alert('请至少填写姓名');
+                return;
+            }
+            
+            const pngBtn = document.getElementById('pngBtn');
+            pngBtn.innerHTML = '<span class="loading"></span> 生成中...';
+            pngBtn.disabled = true;
+            
+            try {
+                const response = await fetch('http://localhost:3000/hook?format=png', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    
+                    // 创建下载链接
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${data.name}_名片.png`;
+                    a.click();
+                    
+                    URL.revokeObjectURL(url);
+                    
+                    showResult('PNG下载成功', {
+                        message: '名片PNG已下载到本地',
+                        filename: `${data.name}_名片.png`,
+                        size: `${(blob.size / 1024).toFixed(1)} KB`
+                    }, false);
+                } else {
+                    const errorText = await response.text();
+                    showResult('PNG生成失败', {error: `HTTP ${response.status}: ${errorText}`}, true);
+                }
+            } catch (error) {
+                showResult('PNG请求失败', {error: error.message}, true);
+            }
+            
+            pngBtn.innerHTML = '<span>🖼️</span> 直接获取PNG';
+            pngBtn.disabled = false;
+        }
+
+        // 批量测试
+        async function runBatchTest() {
+            if (!isServiceHealthy) {
+                alert('服务不可用，请先检查健康状态');
+                return;
+            }
+
+            const batchBtn = document.getElementById('batchBtn');
+            batchBtn.innerHTML = '<span class="loading"></span> 测试中...';
+            batchBtn.disabled = true;
+            
+            const testData = [
+                {name: "张三", title: "产品经理", company: "创新科技"},
+                {name: "李四", title: "工程师", company: "智能科技"},
+                {name: "王五", title: "设计师", company: "创意工作室"}
+            ];
+            
+            let results = [];
+            
+            for (let i = 0; i < testData.length; i++) {
+                try {
+                    const response = await fetch('http://localhost:3000/hook', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(testData[i])
+                    });
+                    
+                    const result = await response.json();
+                    results.push({
+                        user: testData[i].name,
+                        success: response.ok,
+                        result: result
+                    });
+                    
+                    // 短暂延迟避免并发问题
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                } catch (error) {
+                    results.push({
+                        user: testData[i].name,
+                        success: false,
+                        result: {error: error.message}
+                    });
+                }
+            }
+            
+            const successCount = results.filter(r => r.success).length;
+            showResult(`批量测试完成 (${successCount}/${testData.length} 成功)`, {
+                results: results,
+                summary: {
+                    total: testData.length,
+                    success: successCount,
+                    failed: testData.length - successCount,
+                    successRate: `${(successCount/testData.length*100).toFixed(1)}%`
+                }
+            }, successCount < testData.length);
+            
+            batchBtn.innerHTML = '<span>🧪</span> 批量测试';
+            batchBtn.disabled = false;
+        }
+
+        // 获取表单数据
+        function getFormData() {
+            const data = {
+                name: document.getElementById('name').value,
+                title: document.getElementById('title').value,
+                company: document.getElementById('company').value,
+                phone: document.getElementById('phone').value,
+                email: document.getElementById('email').value,
+                avatar_url: document.getElementById('avatar_url').value,
+                qrcode_text: document.getElementById('qrcode_text').value
+            };
+            
+            // 移除空值
+            Object.keys(data).forEach(key => {
+                if (!data[key]) {
+                    delete data[key];
+                }
+            });
+            
+            return data;
+        }
+
+        // 显示结果
+        function showResult(title, data, isError = false) {
+            const resultDiv = document.getElementById('result');
+            const defaultInfo = document.getElementById('defaultInfo');
+            
+            defaultInfo.style.display = 'none';
+            resultDiv.style.display = 'block';
+            resultDiv.className = isError ? 'result error' : 'result';
+            
+            const timestamp = new Date().toLocaleString('zh-CN');
+            
+            resultDiv.innerHTML = `
+                <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 10px;">
+                    <h3>${isError ? '❌' : '✅'} ${title}</h3>
+                    <small style="color: #6c757d;">${timestamp}</small>
+                </div>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        }
+
+        // 快速填充示例数据
+        function fillDemo1() {
+            document.getElementById('name').value = '张三';
+            document.getElementById('title').value = '产品经理';
+            document.getElementById('company').value = '创新科技有限公司';
+            document.getElementById('phone').value = '13800138000';
+            document.getElementById('email').value = 'zhangsan@company.com';
+            document.getElementById('qrcode_text').value = 'https://company.com/zhangsan';
+        }
+
+        function fillDemo2() {
+            document.getElementById('name').value = '李四';
+            document.getElementById('title').value = '高级工程师';
+            document.getElementById('company').value = '智能科技股份';
+            document.getElementById('phone').value = '13900139000';
+            document.getElementById('email').value = 'lisi@tech.com';
+            document.getElementById('avatar_url').value = 'https://avatars.githubusercontent.com/u/1?v=4';
+        }
+
+        function fillDemo3() {
+            document.getElementById('name').value = '王五';
+            document.getElementById('title').value = '设计总监';
+            document.getElementById('company').value = '创意设计工作室';
+            document.getElementById('phone').value = '13700137000';
+            document.getElementById('email').value = 'wangwu@design.com';
+        }
+
+        function clearForm() {
+            document.getElementById('cardForm').reset();
+        }
+    </script>
+</body>
+</html>

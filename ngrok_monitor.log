@@ -1,0 +1,64 @@
+2025年 8月23日 星期六 15时50分38秒 CST: ngrok监控脚本启动
+ * Serving Flask app 'app'
+ * Debug mode: on
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:3000
+ * Running on http://192.168.1.4:3000
+[33mPress CTRL+C to quit[0m
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 880-992-576
+127.0.0.1 - - [23/Aug/2025 15:50:39] "GET /healthz HTTP/1.1" 200 -
+t=2025-08-23T15:50:39+0800 lvl=info msg="command usage" msg="Flag --region has been deprecated, ngrok automatically chooses the region with lowest latency"
+t=2025-08-23T15:50:39+0800 lvl=info msg="no configuration paths supplied"
+t=2025-08-23T15:50:39+0800 lvl=info msg="using configuration at default config path" path="/Users/vecsil/Library/Application Support/ngrok/ngrok.yml"
+t=2025-08-23T15:50:39+0800 lvl=info msg="open config file" path="/Users/vecsil/Library/Application Support/ngrok/ngrok.yml" err=nil
+t=2025-08-23T15:50:39+0800 lvl=info msg="starting web service" obj=web addr=127.0.0.1:4040 allow_hosts=[]
+t=2025-08-23T15:50:40+0800 lvl=info msg=start pg=/api/tunnels id=2cf97f6a2625f1b6
+t=2025-08-23T15:50:40+0800 lvl=info msg=end pg=/api/tunnels id=2cf97f6a2625f1b6 status=200 dur=186.125µs
+t=2025-08-23T15:50:41+0800 lvl=info msg="client session established" obj=tunnels.session
+t=2025-08-23T15:50:41+0800 lvl=info msg="tunnel session started" obj=tunnels.session
+t=2025-08-23T15:50:41+0800 lvl=info msg="started tunnel" obj=tunnels name=command_line addr=http://localhost:3000 url=https://e6476c38b6d4.ngrok-free.app
+t=2025-08-23T15:50:42+0800 lvl=info msg=start pg=/api/tunnels id=825bf63c73a116db
+t=2025-08-23T15:50:42+0800 lvl=info msg=end pg=/api/tunnels id=825bf63c73a116db status=200 dur=287.834µs
+t=2025-08-23T15:50:43+0800 lvl=info msg=start pg=/api/tunnels id=b6fab5dac5c47615
+t=2025-08-23T15:50:43+0800 lvl=info msg=end pg=/api/tunnels id=b6fab5dac5c47615 status=200 dur=170.958µs
+t=2025-08-23T15:50:43+0800 lvl=info msg=start pg=/grpc/agent.Web/State id=83932908d3eda1fc
+t=2025-08-23T15:50:44+0800 lvl=info msg=start pg=/api/tunnels id=bb667bdb4a64b090
+t=2025-08-23T15:50:44+0800 lvl=info msg=end pg=/api/tunnels id=bb667bdb4a64b090 status=200 dur=122.625µs
+t=2025-08-23T15:50:45+0800 lvl=info msg=start pg=/api/tunnels id=5e1093902fa84b8c
+t=2025-08-23T15:50:45+0800 lvl=info msg=end pg=/api/tunnels id=5e1093902fa84b8c status=200 dur=171.084µs
+t=2025-08-23T15:50:46+0800 lvl=info msg=start pg=/api/tunnels id=4c5169426aec95b0
+t=2025-08-23T15:50:46+0800 lvl=info msg=end pg=/api/tunnels id=4c5169426aec95b0 status=200 dur=153.875µs
+t=2025-08-23T15:50:47+0800 lvl=info msg=start pg=/api/tunnels id=34623b07886ad492
+t=2025-08-23T15:50:47+0800 lvl=info msg=end pg=/api/tunnels id=34623b07886ad492 status=200 dur=148.042µs
+t=2025-08-23T15:50:48+0800 lvl=info msg=start pg=/api/tunnels id=13008afc30613e56
+t=2025-08-23T15:50:48+0800 lvl=info msg=end pg=/api/tunnels id=13008afc30613e56 status=200 dur=398.959µs
+t=2025-08-23T15:50:49+0800 lvl=info msg=start pg=/api/tunnels id=8232c0ee724c2f1f
+t=2025-08-23T15:50:49+0800 lvl=info msg=end pg=/api/tunnels id=8232c0ee724c2f1f status=200 dur=105.541µs
+t=2025-08-23T15:50:50+0800 lvl=info msg=start pg=/api/tunnels id=bf6b851a5f97f10c
+t=2025-08-23T15:50:50+0800 lvl=info msg=end pg=/api/tunnels id=bf6b851a5f97f10c status=200 dur=112.416µs
+t=2025-08-23T15:50:51+0800 lvl=info msg=start pg=/api/tunnels id=764d4563151ac0e9
+t=2025-08-23T15:50:51+0800 lvl=info msg=end pg=/api/tunnels id=764d4563151ac0e9 status=200 dur=158.959µs
+t=2025-08-23T15:50:52+0800 lvl=info msg=start pg=/api/tunnels id=608c206d521022d3
+t=2025-08-23T15:50:52+0800 lvl=info msg=end pg=/api/tunnels id=608c206d521022d3 status=200 dur=141.375µs
+t=2025-08-23T15:50:53+0800 lvl=info msg=start pg=/api/tunnels id=3ed7299298d154d2
+t=2025-08-23T15:50:53+0800 lvl=info msg=end pg=/api/tunnels id=3ed7299298d154d2 status=200 dur=152.375µs
+t=2025-08-23T15:50:54+0800 lvl=info msg=start pg=/api/tunnels id=8f0c5a049133a6c1
+t=2025-08-23T15:50:54+0800 lvl=info msg=end pg=/api/tunnels id=8f0c5a049133a6c1 status=200 dur=172.291µs
+t=2025-08-23T15:50:55+0800 lvl=info msg=start pg=/api/tunnels id=49b6a775eecc7637
+t=2025-08-23T15:50:55+0800 lvl=info msg=end pg=/api/tunnels id=49b6a775eecc7637 status=200 dur=230.458µs
+t=2025-08-23T15:50:56+0800 lvl=info msg=start pg=/api/tunnels id=1e0e9b94703105fe
+t=2025-08-23T15:50:56+0800 lvl=info msg=end pg=/api/tunnels id=1e0e9b94703105fe status=200 dur=213.75µs
+t=2025-08-23T15:50:57+0800 lvl=info msg=start pg=/api/tunnels id=539a108b23c3e94b
+t=2025-08-23T15:50:57+0800 lvl=info msg=end pg=/api/tunnels id=539a108b23c3e94b status=200 dur=196µs
+t=2025-08-23T15:50:58+0800 lvl=info msg=start pg=/api/tunnels id=a436760809b05958
+t=2025-08-23T15:50:58+0800 lvl=info msg=end pg=/api/tunnels id=a436760809b05958 status=200 dur=189.875µs
+t=2025-08-23T15:50:59+0800 lvl=info msg=start pg=/api/tunnels id=3413d71e29ec74df
+t=2025-08-23T15:50:59+0800 lvl=info msg=end pg=/api/tunnels id=3413d71e29ec74df status=200 dur=211.25µs
+t=2025-08-23T15:51:00+0800 lvl=info msg="received stop request" obj=app stopReq="{err:<nil> restart:false}"
+t=2025-08-23T15:51:00+0800 lvl=info msg="session closing" obj=tunnels.session err=nil
+t=2025-08-23T15:51:00+0800 lvl=info msg="accept failed" obj=tunnels.session obj=csess id=0d0d2d716cf1 err="reconnecting session closed"
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/multiprocessing/resource_tracker.py:224: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
