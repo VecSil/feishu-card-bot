@@ -113,6 +113,39 @@ def send_image_message_to_open_id(token: str, open_id: str, image_key: str) -> D
     r.raise_for_status()
     return r.json()
 
+def update_feishu_table_record(token: str, app_token: str, table_id: str, record_id: str, fields: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    直接更新飞书多维表格记录
+    """
+    url = f"https://open.feishu.cn/open-apis/bitable/v1/apps/{app_token}/tables/{table_id}/records/{record_id}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    
+    data = {"fields": fields}
+    
+    print(f"Debug: 更新飞书表格记录")
+    print(f"  - app_token: {app_token}")
+    print(f"  - table_id: {table_id}")
+    print(f"  - record_id: {record_id}")
+    print(f"  - fields: {fields}")
+    
+    try:
+        r = requests.put(url, headers=headers, json=data, timeout=15)
+        
+        print(f"Debug: 飞书表格更新响应状态码: {r.status_code}")
+        print(f"Debug: 飞书表格更新响应内容: {r.text}")
+        
+        if r.status_code == 200:
+            return r.json()
+        else:
+            raise RuntimeError(f"Update table record failed - Status: {r.status_code}, Response: {r.text}")
+            
+    except Exception as e:
+        print(f"Error: 更新飞书表格失败: {e}")
+        raise
+
 # ----------------------- Utilities -----------------------
 def safe_filename(s: str) -> str:
     s = s.strip().replace(" ", "_")
@@ -276,7 +309,7 @@ def generate_card(user: Dict[str, Any]) -> (bytes, str):
 
 # ----------------------- Payload parser -----------------------
 def extract_user_info(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """简化的用户信息提取，直接处理6字段JSON格式"""
+    """简化的用户信息提取，直接处理6字段JSON格式，并提取表格信息"""
     # 直接从JSON中提取所需字段
     user_info = {
         "nickname": payload.get("nickname", "").strip(),
@@ -285,7 +318,13 @@ def extract_user_info(payload: Dict[str, Any]) -> Dict[str, Any]:
         "interests": payload.get("interests", "").strip(),
         "mbti": payload.get("mbti", "").strip(),
         "introduction": payload.get("introduction", "").strip(),
-        "wechatQrAttachmentId": payload.get("wechatQrAttachmentId", "").strip()
+        "wechatQrAttachmentId": payload.get("wechatQrAttachmentId", "").strip(),
+        
+        # 提取飞书表格信息（用于直接更新表格记录）
+        "app_token": payload.get("app_token", "").strip(),
+        "table_id": payload.get("table_id", "").strip(), 
+        "record_id": payload.get("record_id", "").strip(),
+        "result_field_name": payload.get("result_field_name", "生成的名片").strip()  # 结果字段名称
     }
     return user_info
 
@@ -508,6 +547,43 @@ def hook():
 
             if recv_open_id:
                 send_result = send_image_message_to_open_id(token, recv_open_id, image_key)
+                
+            # 6) 尝试直接更新飞书表格记录（新功能）
+            table_update_result = None
+            if user.get("app_token") and user.get("table_id") and user.get("record_id"):
+                try:
+                    print(f"🎯 检测到表格更新需求，开始更新飞书表格...")
+                    
+                    # 准备更新字段（将image_key写入指定字段）
+                    update_fields = {
+                        user.get("result_field_name", "生成的名片"): [
+                            {
+                                "file_token": image_key,
+                                "name": f"{user.get('nickname', '用户')}_MBTI名片.png",
+                                "type": "image"
+                            }
+                        ]
+                    }
+                    
+                    # 直接更新表格记录
+                    table_update_result = update_feishu_table_record(
+                        token=token,
+                        app_token=user["app_token"],
+                        table_id=user["table_id"], 
+                        record_id=user["record_id"],
+                        fields=update_fields
+                    )
+                    
+                    print(f"✅ 飞书表格更新成功！用户可直接在表格中查看名片")
+                    send_result["table_updated"] = True
+                    
+                except Exception as e:
+                    print(f"⚠️ 飞书表格更新失败: {e}")
+                    table_update_result = {"error": str(e)}
+                    if not send_result:
+                        send_result = {}
+                    send_result["table_update_failed"] = str(e)
+                    
         except Exception as e:
             send_result = {"warn": f"feishu_upload_failed: {e}"}
     else:
@@ -524,11 +600,17 @@ def hook():
         "image_url": image_url,  # 优先使用飞书代理URL
         "image_key": image_key,
         "send_result": send_result,
+        "table_update_result": table_update_result,  # 表格更新结果
         "suggestions": {
             "view_image": f"访问 {image_url} 查看生成的名片",
             "feishu_setup": get_feishu_setup_suggestions(send_result)
         }
     }
+    
+    # 如果表格更新成功，优先推荐用户查看表格
+    if table_update_result and not table_update_result.get("error"):
+        response_data["suggestions"]["primary_action"] = "✅ 名片已生成并直接更新到您的飞书表格中，请查看表格记录！"
+        response_data["table_updated"] = True
     
     # 如果有飞书代理URL，提供更多选项
     if image_key and feishu_enabled:
