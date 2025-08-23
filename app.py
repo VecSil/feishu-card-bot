@@ -176,11 +176,13 @@ def generate_card(user: Dict[str, Any]) -> (bytes, str):
     W, H = base.size
     draw = ImageDraw.Draw(base)
     
-    # 加载字体
-    name_font = try_load_font(48)
-    big_font = try_load_font(32) 
-    medium_font = try_load_font(24)
-    small_font = try_load_font(20)
+    # 根据高分辨率底图(4961x7016)调整字体大小
+    # 字体需要与底图标题字体大小完全匹配
+    scale_factor = W / 1050
+    # 按照底图标签字体实际大小调整
+    title_font = try_load_font(int(90 * scale_factor))    # 昵称/性别/职业标签字体大小
+    content_font = try_load_font(int(80 * scale_factor))  # 兴趣爱好内容字体
+    intro_font = try_load_font(int(80 * scale_factor))    # 一句话介绍字体
     
     # 提取字段信息
     nickname = user.get("nickname", "未命名")
@@ -190,57 +192,74 @@ def generate_card(user: Dict[str, Any]) -> (bytes, str):
     introduction = user.get("introduction", "")
     wechat_qr = user.get("wechat_qr_image")  # PIL图片对象
     
-    # 定义布局位置（基于常见名片尺寸调整）
-    padding = 40
+    # 基于底图实际布局的精确坐标（4961x7016分辨率）
+    # 根据对比模板图片调整，精确定位到标签右侧
     
-    # 左上：昵称（大字体）
-    draw.text((padding, padding), nickname, font=name_font, fill="#2C3E50", anchor="lt")
+    # 左侧字段区域 - 紧贴标签右侧，精确对齐
+    nickname_x = int(W * 0.23)  # "昵称"标签右侧紧贴位置
+    nickname_y = int(H * 0.25) # "昵称"标签垂直中心对齐
     
-    # 左中：性别 + 职业
-    y_pos = padding + 80
-    if gender and profession:
-        gender_profession = f"{gender} · {profession}"
-    elif gender or profession:
-        gender_profession = gender or profession
-    else:
-        gender_profession = ""
-    if gender_profession:
-        draw.text((padding, y_pos), gender_profession, font=big_font, fill="#34495E", anchor="lt")
-        y_pos += 50
+    gender_x = int(W * 0.23)    # "性别"标签右侧紧贴位置  
+    gender_y = int(H * 0.33)   # "性别"标签垂直中心对齐
     
-    # 左下：兴趣爱好
+    profession_x = int(W * 0.23) # "职业"标签右侧紧贴位置
+    profession_y = int(H * 0.41) # "职业"标签垂直中心对齐
+    
+    # 兴趣爱好区域 - 紧贴"兴趣爱好/在做的创业项目"标签下方
+    interests_x = int(W * 0.08)
+    interests_y = int(H * 0.56)  # 紧贴标签下方，大幅向上调整
+    interests_width = int(W * 1.2)  # 可用宽度
+    
+    # 一句话介绍区域 - 紧贴"一句话介绍你自己"标签下方  
+    intro_x = int(W * 0.08)
+    intro_y = int(H * 0.87)    # 紧贴标签下方，避免重合
+    intro_width = int(W * 1.2) # 可用宽度
+    
+    # 微信二维码区域 - 精确覆盖右侧蓝绿色山丘区域
+    qr_x = int(W * 0.71)        # 山丘区域中心偏左
+    qr_y = int(H * 0.28)        # 山丘区域顶部
+    qr_size = int(W * 0.22)     # 适中的正方形尺寸，不超出边界
+    
+    # 绘制内容 - 使用更大的字体
+    # 1. 昵称 - 使用大字体
+    draw.text((nickname_x, nickname_y), nickname, font=title_font, fill="#3B536A")
+    
+    # 2. 性别 - 使用大字体
+    if gender:
+        draw.text((gender_x, gender_y), gender, font=title_font, fill="#3B536A")
+    
+    # 3. 职业 - 使用大字体
+    if profession:
+        draw.text((profession_x, profession_y), profession, font=title_font, fill="#3B536A")
+    
+    # 4. 兴趣爱好（多行文本，自动换行）- 使用中等字体
     if interests:
-        # 处理长文本换行
-        wrapped_interests = textwrap.fill(interests, width=20)
-        draw.text((padding, y_pos), f"兴趣：{wrapped_interests}", font=medium_font, fill="#7F8C8D")
-        y_pos += 80
+        # 计算合适的字符宽度用于换行
+        avg_char_width = draw.textlength("测", font=content_font)
+        chars_per_line = int(interests_width // avg_char_width)
+        wrapped_interests = textwrap.fill(interests, width=chars_per_line)
+        
+        lines = wrapped_interests.split('\n')
+        for i, line in enumerate(lines):
+            line_y = interests_y + i * int(90 * scale_factor)  # 增加行间距
+            draw.text((interests_x, line_y), line, font=content_font, fill="#3B536A")
     
-    # 右上：MBTI标识
-    mbti_x = W - padding - 120
-    draw.text((mbti_x, padding), mbti, font=name_font, fill="#E74C3C", anchor="rt")
-    
-    # 右中：一句话介绍
+    # 5. 一句话介绍（多行文本）- 使用专用字体
     if introduction:
-        intro_y = padding + 100
-        wrapped_intro = textwrap.fill(introduction, width=15)
-        # 计算右对齐位置（不使用anchor，因为多行文本不支持）
+        avg_char_width = draw.textlength("测", font=intro_font)
+        chars_per_line = int(intro_width // avg_char_width)
+        wrapped_intro = textwrap.fill(introduction, width=chars_per_line)
+        
         lines = wrapped_intro.split('\n')
         for i, line in enumerate(lines):
-            line_width = draw.textlength(line, font=medium_font)
-            line_x = mbti_x - line_width
-            line_y = intro_y + i * 30
-            draw.text((line_x, line_y), line, font=medium_font, fill="#2C3E50")
+            line_y = intro_y + i * int(90 * scale_factor)  # 增加行间距
+            draw.text((intro_x, line_y), line, font=intro_font, fill="#34495E")
     
-    # 右下：微信二维码
+    # 6. 微信二维码（1:1比例，覆盖蓝色区域）
     if wechat_qr:
-        qr_x = W - padding - 200
-        qr_y = H - padding - 200
-        base.paste(wechat_qr, (qr_x, qr_y), wechat_qr)
-        # 添加"微信"标签
-        label_text = "微信"
-        label_width = draw.textlength(label_text, font=small_font)
-        label_x = qr_x + 100 - label_width // 2
-        draw.text((label_x, qr_y + 210), label_text, font=small_font, fill="#95A5A6")
+        # 调整二维码尺寸为正方形
+        qr_resized = wechat_qr.resize((qr_size, qr_size), Image.LANCZOS)
+        base.paste(qr_resized, (qr_x, qr_y), qr_resized)
     
     # 保存文件
     os.makedirs(OUTPUT_DIR, exist_ok=True)
