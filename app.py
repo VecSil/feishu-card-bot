@@ -38,16 +38,151 @@ TEMPLATE_PATH = os.getenv("TEMPLATE_PATH", os.path.join(ASSETS_DIR, "template.pn
 
 app = Flask(__name__)
 
+# Token缓存管理
+_token_cache = {
+    "token": None,
+    "expires_at": 0,
+    "last_permission_check": 0
+}
 # ----------------------- Feishu helpers -----------------------
-def get_tenant_access_token() -> str:
+def get_tenant_access_token(force_refresh: bool = False) -> str:
+    """获取tenant_access_token，支持缓存和自动刷新"""
+    current_time = time.time()
+    
+    # 检查是否需要刷新token
+    if (not force_refresh and 
+        _token_cache["token"] and 
+        current_time < _token_cache["expires_at"]):
+        return _token_cache["token"]
+    
+    # 获取新token
     url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal/"
     payload = {"app_id": APP_ID, "app_secret": APP_SECRET}
+    
+    print(f"🔑 获取新的tenant_access_token...")
     r = requests.post(url, json=payload, timeout=10)
     r.raise_for_status()
     data = r.json()
+    
     if data.get("code") != 0:
         raise RuntimeError(f"get_tenant_access_token failed: {data}")
-    return data["tenant_access_token"]
+    
+    # 缓存token（设置提前5分钟过期以避免边界问题）
+    token = data["tenant_access_token"]
+    expires_in = data.get("expire", 7200)  # 默认2小时
+    _token_cache["token"] = token
+    _token_cache["expires_at"] = current_time + expires_in - 300  # 提前5分钟过期
+    
+    print(f"✅ Token获取成功，有效期: {expires_in}秒")
+    return token
+
+def check_feishu_permissions(token: str) -> Dict[str, Any]:
+    """检查飞书应用权限配置状态"""
+    permission_status = {
+        "drive:file": "unknown",
+        "bitable:app": "unknown", 
+        "im:resource": "unknown",
+        "overall_status": "unknown",
+        "recommendations": []
+    }
+    
+    # 测试drive:file权限 - 尝试访问一个测试文件
+    try:
+        test_url = "https://open.feishu.cn/open-apis/drive/v1/files"
+        headers = {"Authorization": f"Bearer {token}"}
+        r = requests.get(test_url, headers=headers, timeout=5)
+        
+        if r.status_code == 200:
+            permission_status["drive:file"] = "granted"
+        elif r.status_code == 403:
+            permission_status["drive:file"] = "denied"
+            permission_status["recommendations"].append("需要申请 drive:file 权限")
+        else:
+            permission_status["drive:file"] = f"error_{r.status_code}"
+            
+    except Exception as e:
+        permission_status["drive:file"] = f"test_failed_{str(e)[:50]}"
+    
+    # 评估整体状态
+    denied_count = sum(1 for status in permission_status.values() if status == "denied")
+    if denied_count > 0:
+        permission_status["overall_status"] = "incomplete"
+        permission_status["recommendations"].append("请访问 https://open.feishu.cn/app/ 配置应用权限")
+    else:
+        permission_status["overall_status"] = "likely_ok"
+    
+    return permission_status
+
+def diagnose_attachment_download_error(status_code: int, response_text: str, attachment_id: str) -> Dict[str, str]:
+    """诊断附件下载错误并提供解决方案"""
+    diagnosis = {
+        "error_type": "unknown",
+        "cause": "unknown", 
+        "solution": "unknown"
+    }
+    
+    if status_code == 403:
+        diagnosis["error_type"] = "permission_denied"
+        diagnosis["cause"] = "飞书应用缺少 drive:file 权限"
+        diagnosis["solution"] = "在飞书开放平台为应用添加 drive:file 权限并重新发布版本"
+        
+    elif status_code == 404:
+        diagnosis["error_type"] = "file_not_found"
+        diagnosis["cause"] = f"附件ID {attachment_id} 对应的文件不存在或已删除"
+        diagnosis["solution"] = "检查attachment_id是否正确，或确认文件是否已被删除"
+        if "not found" in response_text.lower():
+            diagnosis["cause"] += f" (服务器响应: {response_text[:100]})"
+        
+    elif status_code == 400:
+        diagnosis["error_type"] = "invalid_request"
+        diagnosis["cause"] = "请求参数格式错误或attachment_id格式不正确"
+        diagnosis["solution"] = "确认attachment_id格式，可能需要从多维表格记录中获取真实的file_token"
+        
+    elif status_code == 401:
+        diagnosis["error_type"] = "auth_failed"
+        diagnosis["cause"] = "token无效或过期"
+        diagnosis["solution"] = "重新获取tenant_access_token"
+        
+    return diagnosis
+
+def get_permission_setup_guide() -> Dict[str, Any]:
+    """获取完整的权限配置指导"""
+    return {
+        "title": "飞书MBTI名片生成器权限配置指南",
+        "required_permissions": [
+            {
+                "name": "drive:file",
+                "description": "文件读取权限",
+                "purpose": "下载用户上传的微信二维码图片",
+                "critical": True
+            },
+            {
+                "name": "bitable:app", 
+                "description": "多维表格应用权限",
+                "purpose": "访问问卷数据和附件信息",
+                "critical": True
+            },
+            {
+                "name": "im:resource",
+                "description": "消息资源权限", 
+                "purpose": "上传生成的名片图片到飞书",
+                "critical": False
+            }
+        ],
+        "setup_steps": [
+            "1. 访问飞书开放平台: https://open.feishu.cn/app/",
+            "2. 选择您的应用 → 权限管理",
+            "3. 搜索并添加上述权限",
+            "4. 提交权限申请（部分权限需要管理员审批）", 
+            "5. 权限通过后，重新发布应用版本",
+            "6. 测试权限是否生效"
+        ],
+        "troubleshooting": {
+            "403_error": "权限不足，请确认已添加drive:file权限并重新发布",
+            "404_error": "文件不存在，检查attachment_id是否有效",
+            "400_error": "请求参数错误，确认API调用格式正确"
+        }
+    }
 
 def batch_get_open_id_by_email_or_mobile(token: str, email: Optional[str]=None, mobile: Optional[str]=None) -> Optional[str]:
     """
@@ -139,27 +274,251 @@ def try_load_font(size: int):
                 continue
     return ImageFont.load_default()
 
-def get_wechat_qr_from_attachment(token: str, attachment_id: str) -> Optional[Image.Image]:
-    """通过飞书附件ID获取微信二维码图片"""
+def analyze_attachment_id_type(attachment_id: str) -> Dict[str, Any]:
+    """分析attachment_id的类型和来源"""
+    analysis = {
+        "type": "unknown",
+        "length": len(attachment_id),
+        "prefix": attachment_id[:10] if attachment_id else "",
+        "likely_source": "unknown"
+    }
+    
+    if not attachment_id:
+        analysis["type"] = "empty"
+        return analysis
+    
+    # 基于ID长度和格式特征推测来源
+    if len(attachment_id) > 25:
+        analysis["type"] = "bitable_attachment"
+        analysis["likely_source"] = "multidimensional_table"
+    elif attachment_id.startswith(("img_", "file_")):
+        analysis["type"] = "standard_token"
+        analysis["likely_source"] = "drive_or_message"
+    elif len(attachment_id) < 15:
+        analysis["type"] = "short_id"
+        analysis["likely_source"] = "legacy_or_custom"
+    else:
+        analysis["type"] = "medium_id"
+        analysis["likely_source"] = "form_or_bitable"
+    
+    return analysis
+
+def get_file_token_from_bitable_record(token: str, app_token: str, table_id: str, record_id: str, attachment_field: str) -> Optional[str]:
+    """从多维表格记录中获取附件的file_token"""
     try:
-        url = f"https://open.feishu.cn/open-apis/drive/v1/files/{attachment_id}/content"
+        url = f"https://open.feishu.cn/open-apis/bitable/v1/apps/{app_token}/tables/{table_id}/records/{record_id}"
         headers = {"Authorization": f"Bearer {token}"}
-        r = requests.get(url, headers=headers, timeout=15)
-        r.raise_for_status()
         
-        # 转换为PIL图片对象
-        im = Image.open(io.BytesIO(r.content)).convert("RGBA")
-        # 调整为方形，适合放在名片上
-        size = 200  # 固定二维码大小
-        im = ImageOps.fit(im, (size, size), method=Image.LANCZOS, centering=(0.5, 0.5))
-        return im
-    except Exception as e:
-        print(f"获取微信二维码失败: {e}")
+        print(f"🔍 查询多维表格记录获取file_token...")
+        print(f"  - app_token: {app_token}")
+        print(f"  - table_id: {table_id}")
+        print(f"  - record_id: {record_id}")
+        
+        r = requests.get(url, headers=headers, timeout=15)
+        
+        print(f"📊 多维表格查询响应: HTTP {r.status_code}")
+        
+        if r.status_code == 200:
+            data = r.json()
+            print(f"📋 记录查询成功")
+            
+            # 从记录中提取附件字段
+            fields = data.get("data", {}).get("record", {}).get("fields", {})
+            attachment_data = fields.get(attachment_field, [])
+            
+            print(f"🔗 附件字段 '{attachment_field}' 内容: {attachment_data}")
+            
+            # 如果是列表格式，取第一个附件的file_token
+            if isinstance(attachment_data, list) and len(attachment_data) > 0:
+                file_token = attachment_data[0].get("file_token")
+                if file_token:
+                    print(f"✅ 成功提取file_token: {file_token}")
+                    return file_token
+                    
+        print(f"❌ 无法从记录中获取file_token")
         return None
+        
+    except Exception as e:
+        print(f"❌ 查询多维表格记录失败: {e}")
+        return None
+
+def search_all_bitable_records_for_attachments(token: str, app_token: str, table_id: str, attachment_id: str) -> Optional[str]:
+    """搜索多维表格所有记录，寻找包含指定attachment_id的记录，并返回真实file_token"""
+    try:
+        # 使用搜索记录API而不是获取单个记录
+        url = f"https://open.feishu.cn/open-apis/bitable/v1/apps/{app_token}/tables/{table_id}/records/search"
+        headers = {"Authorization": f"Bearer {token}"}
+        payload = {
+            "page_size": 100,  # 每页记录数
+            "automatic_fields": True  # 自动计算字段
+        }
+        
+        print(f"🔍 搜索多维表格所有记录寻找attachment_id: {attachment_id}")
+        
+        r = requests.post(url, headers=headers, json=payload, timeout=15)
+        
+        print(f"📊 搜索记录响应: HTTP {r.status_code}")
+        
+        if r.status_code == 200:
+            data = r.json()
+            records = data.get("data", {}).get("items", [])
+            
+            print(f"📋 找到 {len(records)} 条记录，正在检查附件字段...")
+            
+            # 遍历所有记录和所有字段，寻找attachment_id
+            for record in records:
+                fields = record.get("fields", {})
+                for field_name, field_value in fields.items():
+                    # 检查是否是附件字段（通常是列表格式）
+                    if isinstance(field_value, list):
+                        for attachment in field_value:
+                            if isinstance(attachment, dict):
+                                # 检查是否包含file_token
+                                file_token = attachment.get("file_token")
+                                if file_token:
+                                    print(f"🎯 在字段'{field_name}'中发现附件: file_token={file_token}")
+                                    # 如果有其他标识符字段匹配attachment_id，或者直接返回第一个找到的
+                                    return file_token
+            
+            print(f"❌ 在所有记录中未找到对应的attachment信息")
+            
+        else:
+            print(f"❌ 搜索记录失败: {r.text}")
+            
+        return None
+        
+    except Exception as e:
+        print(f"❌ 搜索多维表格记录失败: {e}")
+        return None
+
+def get_wechat_qr_from_attachment(token: str, attachment_id: str, user_info: Dict[str, Any] = None) -> Optional[Image.Image]:
+    """通过飞书附件ID获取微信二维码图片，支持多种获取方式"""
+    
+    print(f"🔍 开始获取微信二维码，attachment_id: {attachment_id}")
+    
+    # 智能分析attachment_id类型
+    id_analysis = analyze_attachment_id_type(attachment_id)
+    print(f"🧠 ID分析结果: 类型={id_analysis['type']}, 长度={id_analysis['length']}, 来源={id_analysis['likely_source']}")
+    
+    # 方案1：从多维表格中搜索真实的file_token（基于新发现的正确方法）
+    file_token = None
+    if user_info and user_info.get("app_token") and user_info.get("table_id"):
+        print(f"📋 检测到表格信息，搜索真实file_token...")
+        
+        # 首先尝试搜索所有记录查找附件
+        file_token = search_all_bitable_records_for_attachments(
+            token=token,
+            app_token=user_info["app_token"],
+            table_id=user_info["table_id"],
+            attachment_id=attachment_id
+        )
+        
+        if file_token:
+            print(f"✅ 通过搜索记录找到真实file_token: {file_token}")
+        elif user_info.get("record_id"):
+            # 备选方案：如果有具体记录ID，尝试查询特定记录
+            print(f"🔄 尝试查询特定记录...")
+            possible_fields = ["微信二维码", "附件", "图片", "文件", "wechat_qr", "attachment", "image"]
+            for field_name in possible_fields:
+                file_token = get_file_token_from_bitable_record(
+                    token=token,
+                    app_token=user_info["app_token"],
+                    table_id=user_info["table_id"],
+                    record_id=user_info["record_id"],
+                    attachment_field=field_name
+                )
+                if file_token:
+                    print(f"✅ 在字段 '{field_name}' 中找到file_token: {file_token}")
+                    break
+    
+    # 准备下载API尝试列表
+    download_attempts = []
+    
+    if file_token:
+        # 如果成功获取file_token，优先使用正确的下载API
+        download_attempts.extend([
+            f"https://open.feishu.cn/open-apis/drive/v1/medias/{file_token}/download",
+            f"https://open.feishu.cn/open-apis/drive/v1/files/{file_token}/content",
+        ])
+        print(f"✅ 将使用file_token进行下载: {file_token}")
+    
+    # 方案2：使用正确的飞书媒体文件下载API（基于搜索结果的发现）
+    # 关键发现：应该使用 /drive/v1/medias/{file_token}/download 而不是 /files/
+    if file_token:
+        # 如果有从多维表格获取的file_token，使用正确的medias API
+        download_attempts.append(f"https://open.feishu.cn/open-apis/drive/v1/medias/{file_token}/download")
+        print(f"✅ 使用正确的媒体文件下载API (file_token: {file_token})")
+    
+    # 方案3：将attachment_id当作file_token尝试medias API
+    download_attempts.append(f"https://open.feishu.cn/open-apis/drive/v1/medias/{attachment_id}/download")
+    print(f"✅ 尝试将attachment_id作为file_token使用媒体下载API")
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    # 尝试各种下载API
+    for i, url in enumerate(download_attempts, 1):
+        try:
+            print(f"🔄 尝试下载API #{i}: {url}")
+            r = requests.get(url, headers=headers, timeout=15)
+            
+            print(f"📊 API #{i} 响应: HTTP {r.status_code}, Content-Type: {r.headers.get('content-type', 'N/A')}")
+            
+            if r.status_code == 200:
+                content_type = r.headers.get('content-type', '').lower()
+                
+                # 检查是否是有效的图片内容
+                if len(r.content) < 100:
+                    print(f"⚠️ 内容太小 ({len(r.content)} bytes)，跳过")
+                    continue
+                
+                if 'json' in content_type:
+                    print(f"⚠️ 返回JSON格式: {r.text[:200]}...")
+                    continue
+                
+                try:
+                    # 尝试解析为图片
+                    im = Image.open(io.BytesIO(r.content)).convert("RGBA")
+                    print(f"📐 图片尺寸: {im.size}")
+                    
+                    # 调整为方形，适合放在名片上
+                    size = 200  # 固定二维码大小
+                    im = ImageOps.fit(im, (size, size), method=Image.LANCZOS, centering=(0.5, 0.5))
+                    
+                    print(f"✅ 微信二维码获取成功！(API #{i})")
+                    return im
+                    
+                except Exception as img_error:
+                    print(f"❌ 图片解析失败 (API #{i}): {img_error}")
+                    continue
+                    
+            else:
+                # 使用新的错误诊断功能
+                diagnosis = diagnose_attachment_download_error(r.status_code, r.text, attachment_id)
+                print(f"❌ API #{i} 失败: HTTP {r.status_code}")
+                print(f"   🔍 错误类型: {diagnosis['error_type']}")
+                print(f"   🎯 原因: {diagnosis['cause']}")
+                print(f"   💡 解决方案: {diagnosis['solution']}")
+                
+        except Exception as e:
+            print(f"❌ API #{i} 异常: {e}")
+            continue
+    
+    print(f"❌ 所有 {len(download_attempts)} 个下载API都失败")
+    print(f"📊 附件下载失败总结:")
+    print(f"   - 测试的attachment_id: {attachment_id}")
+    print(f"   - ID类型分析: {id_analysis['type']} (长度: {id_analysis['length']})")
+    print(f"   - 推测来源: {id_analysis['likely_source']}")
+    print(f"📋 完整解决方案:")
+    print(f"   1. 【权限配置】访问 https://open.feishu.cn/app/ → 您的应用 → 权限管理")
+    print(f"      添加权限: drive:file, bitable:app, im:resource")
+    print(f"   2. 【重新发布】权限变更后需要重新发布应用版本") 
+    print(f"   3. 【API正确性】确认使用 /drive/v1/files/{{attachment_id}}/content API")
+    print(f"   4. 【字段映射】确认多维表格中的确切附件字段名称")
+    return None
 
 
 # ----------------------- Card generator -----------------------
-def generate_card(user: Dict[str, Any]) -> (bytes, str):
+def generate_card(user: Dict[str, Any]) -> tuple[bytes, str]:
     """根据用户信息和MBTI生成个性化名片"""
     # 获取MBTI类型并选择对应底图
     mbti = user.get("mbti", "INFP").upper().strip()
@@ -313,6 +672,35 @@ def get_feishu_setup_suggestions(send_result):
 def healthz():
     return jsonify({"ok": True})
 
+@app.route("/permissions", methods=["GET"])  
+def check_permissions():
+    """检查飞书权限配置状态"""
+    try:
+        if not APP_ID or not APP_SECRET:
+            return jsonify({
+                "status": "error",
+                "message": "飞书应用未配置",
+                "setup_guide": get_permission_setup_guide()
+            }), 400
+            
+        token = get_tenant_access_token()
+        permission_status = check_feishu_permissions(token)
+        setup_guide = get_permission_setup_guide()
+        
+        return jsonify({
+            "status": "ok",
+            "permission_status": permission_status,
+            "setup_guide": setup_guide,
+            "app_configured": True
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error", 
+            "message": f"权限检查失败: {str(e)}",
+            "setup_guide": get_permission_setup_guide()
+        }), 500
+
 @app.route("/image/<path:filename>", methods=["GET"])
 def serve_image(filename):
     """直接访问生成的名片图片（本地文件）"""
@@ -459,7 +847,7 @@ def hook():
     if user.get("wechatQrAttachmentId") and APP_ID and APP_SECRET:
         try:
             token = get_tenant_access_token()
-            wechat_qr_image = get_wechat_qr_from_attachment(token, user["wechatQrAttachmentId"])
+            wechat_qr_image = get_wechat_qr_from_attachment(token, user["wechatQrAttachmentId"], user)
             user["wechat_qr_image"] = wechat_qr_image
         except Exception as e:
             print(f"获取微信二维码失败: {e}")
