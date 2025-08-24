@@ -478,13 +478,12 @@ def get_wechat_qr_from_attachment(token: str, attachment_id: str, user_info: Dic
                 try:
                     # 尝试解析为图片
                     im = Image.open(io.BytesIO(r.content)).convert("RGBA")
-                    print(f"📐 图片尺寸: {im.size}")
+                    print(f"📐 图片尺寸: {im.size} (保持原始比例)")
                     
-                    # 调整为方形，适合放在名片上
-                    size = 200  # 固定二维码大小
-                    im = ImageOps.fit(im, (size, size), method=Image.LANCZOS, centering=(0.5, 0.5))
+                    # 保持原图比例，不进行裁剪
+                    # 返回原图，让后续的名片生成函数来处理缩放
                     
-                    print(f"✅ 微信二维码获取成功！(API #{i})")
+                    print(f"✅ 微信二维码获取成功！(API #{i}) - 原始比例保持")
                     return im
                     
                 except Exception as img_error:
@@ -575,9 +574,10 @@ def generate_card(user: Dict[str, Any]) -> tuple[bytes, str]:
     intro_width = int(W * 1.2) # 可用宽度
     
     # 微信二维码区域 - 精确覆盖图片！
-    qr_x = int(W * 0.625)        
-    qr_y = int(H * 0.282)        # 山丘区域顶部
-    qr_size = int(W * 0.3)     # 适中的正方形尺寸，不超出边界
+    qr_x = int(W * 0.67)        
+    qr_y = int(H * 0.25)        # 山丘区域顶部
+    qr_max_width = int(W * 0.26)  # 最大宽度限制
+    qr_max_height = int(H * 0.44) # 最大高度限制
     
     # 绘制内容 - 使用更大的字体
     # 1. 昵称 - 使用大字体
@@ -614,10 +614,24 @@ def generate_card(user: Dict[str, Any]) -> tuple[bytes, str]:
             line_y = intro_y + i * int(90 * scale_factor)  # 增加行间距
             draw.text((intro_x, line_y), line, font=intro_font, fill="#34495E")
     
-    # 6. 微信二维码（1:1比例，覆盖蓝色区域）
+    # 6. 微信二维码（保持原图比例，不裁剪）
     if wechat_qr:
-        # 调整二维码尺寸为正方形
-        qr_resized = wechat_qr.resize((qr_size, qr_size), Image.LANCZOS)
+        # 获取原图尺寸
+        orig_w, orig_h = wechat_qr.size
+        
+        # 计算缩放比例，以适应最大宽度和高度限制，同时保持原图比例
+        width_scale = qr_max_width / orig_w
+        height_scale = qr_max_height / orig_h
+        
+        # 选择较小的缩放比例，确保图片完全适应可用空间
+        scale = min(width_scale, height_scale)
+        
+        # 计算最终尺寸
+        new_width = int(orig_w * scale)
+        new_height = int(orig_h * scale)
+        
+        # 按原比例缩放
+        qr_resized = wechat_qr.resize((new_width, new_height), Image.LANCZOS)
         base.paste(qr_resized, (qr_x, qr_y), qr_resized)
     
     # 保存文件
