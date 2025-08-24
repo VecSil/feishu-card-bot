@@ -38,6 +38,13 @@ TEMPLATE_PATH = os.getenv("TEMPLATE_PATH", os.path.join(ASSETS_DIR, "template.pn
 
 app = Flask(__name__)
 
+# 添加全局响应头以消除ngrok浏览器警告
+@app.after_request
+def after_request(response):
+    # 设置ngrok-skip-browser-warning头以消除ngrok警告页面
+    response.headers['ngrok-skip-browser-warning'] = 'true'
+    return response
+
 # Token缓存管理
 _token_cache = {
     "token": None,
@@ -538,9 +545,9 @@ def generate_card(user: Dict[str, Any]) -> tuple[bytes, str]:
     # 字体需要与底图标题字体大小完全匹配
     scale_factor = W / 1050
     # 按照底图标签字体实际大小调整
-    title_font = try_load_font(int(90 * scale_factor))    # 昵称/性别/职业标签字体大小
-    content_font = try_load_font(int(100 * scale_factor))  # 兴趣爱好内容字体
-    intro_font = try_load_font(int(80 * scale_factor))    # 一句话介绍字体
+    title_font = try_load_font(int(60 * scale_factor))    # 昵称/性别/职业标签字体大小
+    content_font = try_load_font(int(50 * scale_factor))  # 兴趣爱好内容字体
+    intro_font = try_load_font(int(50 * scale_factor))    # 一句话介绍字体
     
     # 提取字段信息
     nickname = user.get("nickname", "未命名")
@@ -561,7 +568,7 @@ def generate_card(user: Dict[str, Any]) -> tuple[bytes, str]:
     gender_y = int(H * 0.33)   # "性别"标签垂直中心对齐
     
     profession_x = int(W * 0.23) # "职业"标签右侧紧贴位置
-    profession_y = int(H * 0.41) # "职业"标签垂直中心对齐
+    profession_y = int(H * 0.42) # "职业"标签垂直中心对齐
     
     # 兴趣爱好区域 - 紧贴"兴趣爱好/在做的创业项目"标签下方
     interests_x = int(W * 0.08)
