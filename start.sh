@@ -207,6 +207,68 @@ setup_env() {
     fi
 }
 
+# 清理冲突进程
+cleanup_conflicting_processes() {
+    print_header "清理冲突进程"
+    
+    # 检查是否有占用3000端口的进程
+    local conflicting_pids=$(lsof -ti :3000 2>/dev/null || true)
+    
+    if [[ -n "$conflicting_pids" ]]; then
+        print_msg "🔍 发现占用3000端口的进程: $conflicting_pids" $YELLOW
+        print_msg "🧹 正在清理冲突进程..." $BLUE
+        
+        # 优雅地终止进程
+        for pid in $conflicting_pids; do
+            if kill -0 "$pid" 2>/dev/null; then
+                print_msg "  终止进程: $pid" $CYAN
+                kill "$pid" 2>/dev/null || true
+                sleep 1
+                
+                # 如果进程仍然存在，强制终止
+                if kill -0 "$pid" 2>/dev/null; then
+                    print_msg "  强制终止进程: $pid" $YELLOW
+                    kill -9 "$pid" 2>/dev/null || true
+                fi
+            fi
+        done
+        
+        # 等待端口释放
+        sleep 2
+        
+        # 再次检查
+        local remaining_pids=$(lsof -ti :3000 2>/dev/null || true)
+        if [[ -n "$remaining_pids" ]]; then
+            print_msg "⚠️ 仍有进程占用3000端口: $remaining_pids" $YELLOW
+            print_msg "请手动终止这些进程或使用其他端口" $RED
+            return 1
+        else
+            print_msg "✅ 端口3000已清理完毕" $GREEN
+        fi
+    else
+        print_msg "✅ 端口3000无冲突进程" $GREEN
+    fi
+    
+    # 清理可能的Flask僵尸进程
+    local flask_pids=$(pgrep -f "python.*app.py" 2>/dev/null || true)
+    if [[ -n "$flask_pids" ]]; then
+        print_msg "🔍 发现Flask相关进程: $flask_pids" $YELLOW
+        print_msg "🧹 正在清理Flask进程..." $BLUE
+        
+        for pid in $flask_pids; do
+            if kill -0 "$pid" 2>/dev/null; then
+                print_msg "  终止Flask进程: $pid" $CYAN
+                kill "$pid" 2>/dev/null || kill -9 "$pid" 2>/dev/null || true
+            fi
+        done
+        
+        sleep 1
+        print_msg "✅ Flask进程清理完毕" $GREEN
+    fi
+    
+    return 0
+}
+
 # 检查服务状态
 check_service() {
     local max_attempts=10
@@ -241,6 +303,12 @@ show_test_options() {
 run_local() {
     print_header "本地开发模式"
     
+    # 清理可能的进程冲突
+    cleanup_conflicting_processes || {
+        print_msg "❌ 进程清理失败，无法启动服务" $RED
+        exit 1
+    }
+    
     print_msg "🚀 启动Flask应用(前台模式，显示详细日志)..." $BLUE
     print_msg "💡 你将看到所有请求的详细处理日志" $CYAN
     print_msg "📋 包括: 请求解析、飞书API调用、图片生成等步骤\n" $YELLOW
@@ -252,6 +320,12 @@ run_local() {
 # ngrok隧道模式
 run_ngrok() {
     print_header "ngrok稳定隧道模式"
+    
+    # 清理可能的进程冲突
+    cleanup_conflicting_processes || {
+        print_msg "❌ 进程清理失败，无法启动服务" $RED
+        exit 1
+    }
     
     # 检查ngrok是否安装
     if ! command -v ngrok &> /dev/null; then
@@ -340,6 +414,12 @@ run_ngrok() {
 # localtunnel隧道模式（备用）
 run_localtunnel() {
     print_header "localtunnel备用隧道模式"
+    
+    # 清理可能的进程冲突
+    cleanup_conflicting_processes || {
+        print_msg "❌ 进程清理失败，无法启动服务" $RED
+        exit 1
+    }
     
     # 检查localtunnel是否安装
     if ! command -v lt &> /dev/null; then

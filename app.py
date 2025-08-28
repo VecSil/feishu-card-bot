@@ -38,6 +38,26 @@ TEMPLATE_PATH = os.getenv("TEMPLATE_PATH", os.path.join(ASSETS_DIR, "template.pn
 
 app = Flask(__name__)
 
+def safe_log(message, level="INFO"):
+    """安全的日志输出函数，防止BrokenPipeError"""
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_msg = f"[{timestamp}] {level}: {message}"
+        print(log_msg)
+        return True
+    except (BrokenPipeError, IOError) as e:
+        # 发生管道错误时，尝试写入日志文件而不是标准输出
+        try:
+            with open("flask.log", "a", encoding="utf-8") as f:
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                f.write(f"[{timestamp}] {level}: {message}\n")
+                f.write(f"[{timestamp}] WARNING: Print output failed due to {type(e).__name__}: {e}\n")
+        except Exception:
+            pass  # 如果连文件写入都失败，则静默处理
+        return False
+    except Exception:
+        return False
+
 # 添加全局响应头以消除ngrok浏览器警告
 @app.after_request
 def after_request(response):
@@ -66,7 +86,7 @@ def get_tenant_access_token(force_refresh: bool = False) -> str:
     url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal/"
     payload = {"app_id": APP_ID, "app_secret": APP_SECRET}
     
-    print(f"🔑 获取新的tenant_access_token...")
+    safe_log("🔑 获取新的tenant_access_token...")
     r = requests.post(url, json=payload, timeout=10)
     r.raise_for_status()
     data = r.json()
@@ -80,7 +100,7 @@ def get_tenant_access_token(force_refresh: bool = False) -> str:
     _token_cache["token"] = token
     _token_cache["expires_at"] = current_time + expires_in - 300  # 提前5分钟过期
     
-    print(f"✅ Token获取成功，有效期: {expires_in}秒")
+    safe_log(f"✅ Token获取成功，有效期: {expires_in}秒")
     return token
 
 def check_feishu_permissions(token: str) -> Dict[str, Any]:
@@ -223,14 +243,14 @@ def upload_image_to_feishu(token: str, image_bytes: bytes) -> str:
     files = {"image": ("card.png", image_bytes, "image/png")}
     
     # 记录请求详细信息用于调试
-    print(f"Debug: 上传图片到飞书 - 图片大小: {len(image_bytes)} bytes")
-    print(f"Debug: 修复参数格式 - image_type作为form-data字段")
+    safe_log(f"Debug: 上传图片到飞书 - 图片大小: {len(image_bytes)} bytes")
+    safe_log("Debug: 修复参数格式 - image_type作为form-data字段")
     
     r = requests.post(url, headers=headers, files=files, data=data, timeout=20)
     
     # 详细记录响应信息
-    print(f"Debug: 飞书API响应状态码: {r.status_code}")
-    print(f"Debug: 飞书API响应内容: {r.text}")
+    safe_log(f"Debug: 飞书API响应状态码: {r.status_code}")
+    safe_log(f"Debug: 飞书API响应内容: {r.text}")
     
     try:
         response_data = r.json()
@@ -316,37 +336,37 @@ def get_file_token_from_bitable_record(token: str, app_token: str, table_id: str
         url = f"https://open.feishu.cn/open-apis/bitable/v1/apps/{app_token}/tables/{table_id}/records/{record_id}"
         headers = {"Authorization": f"Bearer {token}"}
         
-        print(f"🔍 查询多维表格记录获取file_token...")
-        print(f"  - app_token: {app_token}")
-        print(f"  - table_id: {table_id}")
-        print(f"  - record_id: {record_id}")
+        safe_log("🔍 查询多维表格记录获取file_token...")
+        safe_log(f"  - app_token: {app_token}")
+        safe_log(f"  - table_id: {table_id}")
+        safe_log(f"  - record_id: {record_id}")
         
         r = requests.get(url, headers=headers, timeout=15)
         
-        print(f"📊 多维表格查询响应: HTTP {r.status_code}")
+        safe_log(f"📊 多维表格查询响应: HTTP {r.status_code}")
         
         if r.status_code == 200:
             data = r.json()
-            print(f"📋 记录查询成功")
+            safe_log("📋 记录查询成功")
             
             # 从记录中提取附件字段
             fields = data.get("data", {}).get("record", {}).get("fields", {})
             attachment_data = fields.get(attachment_field, [])
             
-            print(f"🔗 附件字段 '{attachment_field}' 内容: {attachment_data}")
+            safe_log(f"🔗 附件字段 '{attachment_field}' 内容: {attachment_data}")
             
             # 如果是列表格式，取第一个附件的file_token
             if isinstance(attachment_data, list) and len(attachment_data) > 0:
                 file_token = attachment_data[0].get("file_token")
                 if file_token:
-                    print(f"✅ 成功提取file_token: {file_token}")
+                    safe_log(f"✅ 成功提取file_token: {file_token}")
                     return file_token
                     
-        print(f"❌ 无法从记录中获取file_token")
+        safe_log(f"❌ 无法从记录中获取file_token")
         return None
         
     except Exception as e:
-        print(f"❌ 查询多维表格记录失败: {e}")
+        safe_log(f"❌ 查询多维表格记录失败: {e}")
         return None
 
 def search_all_bitable_records_for_attachments(token: str, app_token: str, table_id: str, attachment_id: str) -> Optional[str]:
@@ -360,17 +380,17 @@ def search_all_bitable_records_for_attachments(token: str, app_token: str, table
             "automatic_fields": True  # 自动计算字段
         }
         
-        print(f"🔍 搜索多维表格所有记录寻找attachment_id: {attachment_id}")
+        safe_log(f"🔍 搜索多维表格所有记录寻找attachment_id: {attachment_id}")
         
         r = requests.post(url, headers=headers, json=payload, timeout=15)
         
-        print(f"📊 搜索记录响应: HTTP {r.status_code}")
+        safe_log(f"📊 搜索记录响应: HTTP {r.status_code}")
         
         if r.status_code == 200:
             data = r.json()
             records = data.get("data", {}).get("items", [])
             
-            print(f"📋 找到 {len(records)} 条记录，正在检查附件字段...")
+            safe_log(f"📋 找到 {len(records)} 条记录，正在检查附件字段...")
             
             # 遍历所有记录和所有字段，寻找attachment_id
             for record in records:
@@ -383,34 +403,34 @@ def search_all_bitable_records_for_attachments(token: str, app_token: str, table
                                 # 检查是否包含file_token
                                 file_token = attachment.get("file_token")
                                 if file_token:
-                                    print(f"🎯 在字段'{field_name}'中发现附件: file_token={file_token}")
+                                    safe_log(f"🎯 在字段'{field_name}'中发现附件: file_token={file_token}")
                                     # 如果有其他标识符字段匹配attachment_id，或者直接返回第一个找到的
                                     return file_token
             
-            print(f"❌ 在所有记录中未找到对应的attachment信息")
+            safe_log(f"❌ 在所有记录中未找到对应的attachment信息")
             
         else:
-            print(f"❌ 搜索记录失败: {r.text}")
+            safe_log(f"❌ 搜索记录失败: {r.text}")
             
         return None
         
     except Exception as e:
-        print(f"❌ 搜索多维表格记录失败: {e}")
+        safe_log(f"❌ 搜索多维表格记录失败: {e}")
         return None
 
 def get_wechat_qr_from_attachment(token: str, attachment_id: str, user_info: Dict[str, Any] = None) -> Optional[Image.Image]:
     """通过飞书附件ID获取微信二维码图片，支持多种获取方式"""
     
-    print(f"🔍 开始获取微信二维码，attachment_id: {attachment_id}")
+    safe_log(f"🔍 开始获取微信二维码，attachment_id: {attachment_id}")
     
     # 智能分析attachment_id类型
     id_analysis = analyze_attachment_id_type(attachment_id)
-    print(f"🧠 ID分析结果: 类型={id_analysis['type']}, 长度={id_analysis['length']}, 来源={id_analysis['likely_source']}")
+    safe_log(f"🧠 ID分析结果: 类型={id_analysis['type']}, 长度={id_analysis['length']}, 来源={id_analysis['likely_source']}")
     
     # 方案1：从多维表格中搜索真实的file_token（基于新发现的正确方法）
     file_token = None
     if user_info and user_info.get("app_token") and user_info.get("table_id"):
-        print(f"📋 检测到表格信息，搜索真实file_token...")
+        safe_log(f"📋 检测到表格信息，搜索真实file_token...")
         
         # 首先尝试搜索所有记录查找附件
         file_token = search_all_bitable_records_for_attachments(
@@ -421,10 +441,10 @@ def get_wechat_qr_from_attachment(token: str, attachment_id: str, user_info: Dic
         )
         
         if file_token:
-            print(f"✅ 通过搜索记录找到真实file_token: {file_token}")
+            safe_log(f"✅ 通过搜索记录找到真实file_token: {file_token}")
         elif user_info.get("record_id"):
             # 备选方案：如果有具体记录ID，尝试查询特定记录
-            print(f"🔄 尝试查询特定记录...")
+            safe_log(f"🔄 尝试查询特定记录...")
             possible_fields = ["微信二维码", "附件", "图片", "文件", "wechat_qr", "attachment", "image"]
             for field_name in possible_fields:
                 file_token = get_file_token_from_bitable_record(
@@ -435,7 +455,7 @@ def get_wechat_qr_from_attachment(token: str, attachment_id: str, user_info: Dic
                     attachment_field=field_name
                 )
                 if file_token:
-                    print(f"✅ 在字段 '{field_name}' 中找到file_token: {file_token}")
+                    safe_log(f"✅ 在字段 '{field_name}' 中找到file_token: {file_token}")
                     break
     
     # 准备下载API尝试列表
@@ -447,79 +467,79 @@ def get_wechat_qr_from_attachment(token: str, attachment_id: str, user_info: Dic
             f"https://open.feishu.cn/open-apis/drive/v1/medias/{file_token}/download",
             f"https://open.feishu.cn/open-apis/drive/v1/files/{file_token}/content",
         ])
-        print(f"✅ 将使用file_token进行下载: {file_token}")
+        safe_log(f"✅ 将使用file_token进行下载: {file_token}")
     
     # 方案2：使用正确的飞书媒体文件下载API（基于搜索结果的发现）
     # 关键发现：应该使用 /drive/v1/medias/{file_token}/download 而不是 /files/
     if file_token:
         # 如果有从多维表格获取的file_token，使用正确的medias API
         download_attempts.append(f"https://open.feishu.cn/open-apis/drive/v1/medias/{file_token}/download")
-        print(f"✅ 使用正确的媒体文件下载API (file_token: {file_token})")
+        safe_log(f"✅ 使用正确的媒体文件下载API (file_token: {file_token})")
     
     # 方案3：将attachment_id当作file_token尝试medias API
     download_attempts.append(f"https://open.feishu.cn/open-apis/drive/v1/medias/{attachment_id}/download")
-    print(f"✅ 尝试将attachment_id作为file_token使用媒体下载API")
+    safe_log(f"✅ 尝试将attachment_id作为file_token使用媒体下载API")
     
     headers = {"Authorization": f"Bearer {token}"}
     
     # 尝试各种下载API
     for i, url in enumerate(download_attempts, 1):
         try:
-            print(f"🔄 尝试下载API #{i}: {url}")
+            safe_log(f"🔄 尝试下载API #{i}: {url}")
             r = requests.get(url, headers=headers, timeout=15)
             
-            print(f"📊 API #{i} 响应: HTTP {r.status_code}, Content-Type: {r.headers.get('content-type', 'N/A')}")
+            safe_log(f"📊 API #{i} 响应: HTTP {r.status_code}, Content-Type: {r.headers.get('content-type', 'N/A')}")
             
             if r.status_code == 200:
                 content_type = r.headers.get('content-type', '').lower()
                 
                 # 检查是否是有效的图片内容
                 if len(r.content) < 100:
-                    print(f"⚠️ 内容太小 ({len(r.content)} bytes)，跳过")
+                    safe_log(f"⚠️ 内容太小 ({len(r.content)} bytes)，跳过")
                     continue
                 
                 if 'json' in content_type:
-                    print(f"⚠️ 返回JSON格式: {r.text[:200]}...")
+                    safe_log(f"⚠️ 返回JSON格式: {r.text[:200]}...")
                     continue
                 
                 try:
                     # 尝试解析为图片
                     im = Image.open(io.BytesIO(r.content)).convert("RGBA")
-                    print(f"📐 图片尺寸: {im.size} (保持原始比例)")
+                    safe_log(f"📐 图片尺寸: {im.size} (保持原始比例)")
                     
                     # 保持原图比例，不进行裁剪
                     # 返回原图，让后续的名片生成函数来处理缩放
                     
-                    print(f"✅ 微信二维码获取成功！(API #{i}) - 原始比例保持")
+                    safe_log(f"✅ 微信二维码获取成功！(API #{i}) - 原始比例保持")
                     return im
                     
                 except Exception as img_error:
-                    print(f"❌ 图片解析失败 (API #{i}): {img_error}")
+                    safe_log(f"❌ 图片解析失败 (API #{i}): {img_error}")
                     continue
                     
             else:
                 # 使用新的错误诊断功能
                 diagnosis = diagnose_attachment_download_error(r.status_code, r.text, attachment_id)
-                print(f"❌ API #{i} 失败: HTTP {r.status_code}")
-                print(f"   🔍 错误类型: {diagnosis['error_type']}")
-                print(f"   🎯 原因: {diagnosis['cause']}")
-                print(f"   💡 解决方案: {diagnosis['solution']}")
+                safe_log(f"❌ API #{i} 失败: HTTP {r.status_code}")
+                safe_log(f"   🔍 错误类型: {diagnosis['error_type']}")
+                safe_log(f"   🎯 原因: {diagnosis['cause']}")
+                safe_log(f"   💡 解决方案: {diagnosis['solution']}")
                 
         except Exception as e:
-            print(f"❌ API #{i} 异常: {e}")
+            safe_log(f"❌ API #{i} 异常: {e}")
             continue
     
-    print(f"❌ 所有 {len(download_attempts)} 个下载API都失败")
-    print(f"📊 附件下载失败总结:")
-    print(f"   - 测试的attachment_id: {attachment_id}")
-    print(f"   - ID类型分析: {id_analysis['type']} (长度: {id_analysis['length']})")
-    print(f"   - 推测来源: {id_analysis['likely_source']}")
-    print(f"📋 完整解决方案:")
-    print(f"   1. 【权限配置】访问 https://open.feishu.cn/app/ → 您的应用 → 权限管理")
-    print(f"      添加权限: drive:file, bitable:app, im:resource")
-    print(f"   2. 【重新发布】权限变更后需要重新发布应用版本") 
-    print(f"   3. 【API正确性】确认使用 /drive/v1/files/{{attachment_id}}/content API")
-    print(f"   4. 【字段映射】确认多维表格中的确切附件字段名称")
+    safe_log(f"❌ 所有 {len(download_attempts)} 个下载API都失败")
+    safe_log(f"📊 附件下载失败总结:")
+    safe_log(f"   - 测试的attachment_id: {attachment_id}")
+    safe_log(f"   - ID类型分析: {id_analysis['type']} (长度: {id_analysis['length']})")
+    safe_log(f"   - 推测来源: {id_analysis['likely_source']}")
+    safe_log(f"📋 完整解决方案:")
+    safe_log(f"   1. 【权限配置】访问 https://open.feishu.cn/app/ → 您的应用 → 权限管理")
+    safe_log(f"      添加权限: drive:file, bitable:app, im:resource")
+    safe_log(f"   2. 【重新发布】权限变更后需要重新发布应用版本") 
+    safe_log(f"   3. 【API正确性】确认使用 /drive/v1/files/{{attachment_id}}/content API")
+    safe_log(f"   4. 【字段映射】确认多维表格中的确切附件字段名称")
     return None
 
 
@@ -746,7 +766,7 @@ def serve_image(filename):
 def serve_feishu_image(image_key):
     """通过飞书API代理访问云端图片"""
     try:
-        print(f"🔍 请求飞书图片: {image_key}")
+        safe_log(f"🔍 请求飞书图片: {image_key}")
         
         # 获取飞书访问token
         if not APP_ID or not APP_SECRET:
@@ -758,11 +778,11 @@ def serve_feishu_image(image_key):
         url = f"https://open.feishu.cn/open-apis/im/v1/images/{image_key}"
         headers = {"Authorization": f"Bearer {token}"}
         
-        print(f"📥 从飞书获取图片: {url}")
+        safe_log(f"📥 从飞书获取图片: {url}")
         r = requests.get(url, headers=headers, timeout=15)
         
         if r.status_code == 200:
-            print(f"✅ 飞书图片获取成功: {len(r.content)} bytes")
+            safe_log(f"✅ 飞书图片获取成功: {len(r.content)} bytes")
             # 直接返回飞书的图片内容
             response = app.response_class(
                 r.content,
@@ -774,7 +794,7 @@ def serve_feishu_image(image_key):
             )
             return response
         else:
-            print(f"❌ 飞书图片获取失败: {r.status_code} - {r.text}")
+            safe_log(f"❌ 飞书图片获取失败: {r.status_code} - {r.text}")
             return jsonify({
                 "error": "feishu_image_not_found", 
                 "detail": f"飞书API返回: {r.status_code}",
@@ -782,7 +802,7 @@ def serve_feishu_image(image_key):
             }), 404
             
     except Exception as e:
-        print(f"❌ 飞书图片代理异常: {e}")
+        safe_log(f"❌ 飞书图片代理异常: {e}")
         return jsonify({
             "error": "feishu_proxy_failed", 
             "detail": str(e),
@@ -792,10 +812,10 @@ def serve_feishu_image(image_key):
 @app.route("/hook", methods=["GET", "POST"])
 def hook():
     # 记录请求详细信息用于调试
-    print(f"🔍 收到请求: {request.method} {request.url}")
-    print(f"📋 请求头: {dict(request.headers)}")
-    print(f"🌐 客户端IP: {request.remote_addr}")
-    print(f"📝 Content-Type: {request.content_type}")
+    safe_log(f"🔍 收到请求: {request.method} {request.url}")
+    safe_log(f"📋 请求头: {dict(request.headers)}")
+    safe_log(f"🌐 客户端IP: {request.remote_addr}")
+    safe_log(f"📝 Content-Type: {request.content_type}")
     
     # 处理GET请求（飞书可能的预检查）
     if request.method == "GET":
@@ -820,38 +840,38 @@ def hook():
     payload = {}
     
     try:
-        print(f"📦 开始解析POST数据...")
+        safe_log(f"📦 开始解析POST数据...")
         # 尝试解析JSON格式
         if request.content_type and 'application/json' in request.content_type:
             payload = request.get_json(force=True, silent=False) or {}
-            print(f"✅ JSON数据解析成功: {len(str(payload))} 字符")
+            safe_log(f"✅ JSON数据解析成功: {len(str(payload))} 字符")
         # 处理表单数据格式（multipart/form-data 或 application/x-www-form-urlencoded）
         elif request.form:
             payload = dict(request.form)
-            print(f"✅ Form数据解析成功: {len(payload)} 个字段")
+            safe_log(f"✅ Form数据解析成功: {len(payload)} 个字段")
         # 处理原始数据
         elif request.get_data():
             # 尝试解析为JSON
             raw_data = request.get_data().decode('utf-8')
-            print(f"📄 原始数据: {raw_data[:200]}...")
+            safe_log(f"📄 原始数据: {raw_data[:200]}...")
             try:
                 import json as json_module
                 payload = json_module.loads(raw_data)
-                print(f"✅ 原始JSON解析成功")
+                safe_log(f"✅ 原始JSON解析成功")
             except:
                 # 如果不是JSON，返回错误信息用于调试
-                print(f"❌ 无法解析为JSON格式")
+                safe_log(f"❌ 无法解析为JSON格式")
                 return jsonify({
                     "error": "unsupported_format", 
                     "detail": f"Content-Type: {request.content_type}",
                     "raw_data": raw_data[:200]
                 }), 400
         else:
-            print(f"❌ 未收到任何数据")
+            safe_log(f"❌ 未收到任何数据")
             return jsonify({"error": "empty_request", "detail": "No data received"}), 400
         
         # 打印解析后的数据用于调试
-        print(f"🎯 解析后的payload: {json.dumps(payload, ensure_ascii=False, indent=2) if payload else 'Empty'}")
+        safe_log(f"🎯 解析后的payload: {json.dumps(payload, ensure_ascii=False, indent=2) if payload else 'Empty'}")
             
     except Exception as e:
         return jsonify({
@@ -871,7 +891,7 @@ def hook():
             wechat_qr_image = get_wechat_qr_from_attachment(token, user["wechatQrAttachmentId"], user)
             user["wechat_qr_image"] = wechat_qr_image
         except Exception as e:
-            print(f"获取微信二维码失败: {e}")
+            safe_log(f"获取微信二维码失败: {e}")
     
     # 2) Generate card
     try:
@@ -908,7 +928,7 @@ def hook():
                 base_url = request.url_root.rstrip('/')
                 image_url = f"{base_url}/feishu-image/{image_key}"
             
-            print(f"✅ 优先使用飞书代理URL: {image_url}")
+            safe_log(f"✅ 优先使用飞书代理URL: {image_url}")
 
             # Determine receiver open_id
             recv_open_id = DEBUG_OPEN_ID or user.get("open_id")
