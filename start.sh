@@ -39,6 +39,44 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
+# 检查系统依赖
+check_system_dependencies() {
+    print_header "检查系统依赖"
+    
+    local missing_deps=()
+    
+    # 检查基础工具
+    if ! command -v curl &> /dev/null; then
+        missing_deps+=("curl")
+    fi
+    
+    # 检查编译工具 (对于Pillow编译)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS - 检查是否有Xcode Command Line Tools
+        if ! xcode-select -p &>/dev/null; then
+            print_msg "⚠️ Xcode Command Line Tools未安装，Pillow可能编译失败" $YELLOW
+            print_msg "安装方法: xcode-select --install" $CYAN
+        fi
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux - 检查编译依赖
+        local linux_deps=("gcc" "python3-dev")
+        for dep in "${linux_deps[@]}"; do
+            if ! command -v "$dep" &> /dev/null && ! dpkg -l | grep -q "$dep" 2>/dev/null; then
+                missing_deps+=("$dep")
+            fi
+        done
+    fi
+    
+    if [ ${#missing_deps[@]} -gt 0 ]; then
+        print_msg "⚠️ 缺少系统依赖: ${missing_deps[*]}" $YELLOW
+        if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+            print_msg "安装方法: sudo apt-get install ${missing_deps[*]}" $CYAN
+        fi
+    else
+        print_msg "✅ 系统依赖检查通过" $GREEN
+    fi
+}
+
 # 检查Python环境
 check_python() {
     if ! command -v python3 &> /dev/null; then
@@ -47,7 +85,22 @@ check_python() {
     fi
     
     local python_version=$(python3 --version 2>&1 | cut -d' ' -f2)
-    print_msg "✅ Python版本: $python_version" $GREEN
+    local major_version=$(echo "$python_version" | cut -d'.' -f1)
+    local minor_version=$(echo "$python_version" | cut -d'.' -f2)
+    
+    # 检查Python版本是否在支持范围内 (3.9-3.13)
+    if [[ $major_version -ne 3 ]] || [[ $minor_version -lt 9 ]] || [[ $minor_version -gt 13 ]]; then
+        print_msg "❌ Python版本不受支持: $python_version" $RED
+        print_msg "支持的版本范围: Python 3.9 - 3.13" $YELLOW
+        exit 1
+    fi
+    
+    print_msg "✅ Python版本: $python_version (支持)" $GREEN
+    
+    # 特别提示Python 3.13的新特性
+    if [[ $minor_version -eq 13 ]]; then
+        print_msg "💡 检测到Python 3.13，使用最新依赖版本以获得最佳兼容性" $CYAN
+    fi
 }
 
 # 设置虚拟环境
@@ -56,38 +109,88 @@ setup_venv() {
     
     if [ ! -d ".venv" ]; then
         print_msg "📦 创建虚拟环境..." $BLUE
-        python3 -m venv .venv
+        if ! python3 -m venv .venv; then
+            print_msg "❌ 虚拟环境创建失败" $RED
+            print_msg "可能原因: 缺少python3-venv包或权限问题" $YELLOW
+            if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+                print_msg "尝试安装: sudo apt-get install python3-venv" $CYAN
+            fi
+            exit 1
+        fi
         print_msg "✅ 虚拟环境创建完成" $GREEN
     else
         print_msg "✅ 虚拟环境已存在" $GREEN
     fi
 
+    # 检查虚拟环境是否可用
+    if [ ! -f ".venv/bin/python" ]; then
+        print_msg "❌ 虚拟环境损坏，重新创建中..." $YELLOW
+        rm -rf .venv
+        python3 -m venv .venv
+    fi
+
     # 检查依赖是否需要更新
     print_msg "📋 检查依赖..." $BLUE
-    .venv/bin/pip install --upgrade pip -q
+    if ! .venv/bin/pip install --upgrade pip -q; then
+        print_msg "⚠️ pip升级失败，继续使用当前版本" $YELLOW
+    fi
     
-    # 检查requirements.txt中的包是否已安装
+    # 增强的依赖安装逻辑
     local need_install=false
+    local install_failed=false
+    
+    # 检查requirements.txt中的包是否已安装且版本匹配
     while IFS= read -r package; do
-        package_name=$(echo "$package" | cut -d'=' -f1)
-        if ! .venv/bin/pip show "$package_name" &>/dev/null; then
-            need_install=true
-            break
+        if [[ -n "$package" && ! "$package" =~ ^# ]]; then
+            package_name=$(echo "$package" | cut -d'=' -f1)
+            if ! .venv/bin/pip show "$package_name" &>/dev/null; then
+                need_install=true
+                break
+            fi
         fi
     done < requirements.txt
     
     if $need_install; then
         print_msg "📦 安装项目依赖..." $BLUE
-        .venv/bin/pip install -r requirements.txt -q
+        
+        # 尝试安装依赖，如果失败提供诊断信息
+        if ! .venv/bin/pip install -r requirements.txt -q; then
+            print_msg "❌ 依赖安装失败，尝试详细安装以获取错误信息..." $RED
+            install_failed=true
+            
+            # 逐个安装以定位问题
+            while IFS= read -r package; do
+                if [[ -n "$package" && ! "$package" =~ ^# ]]; then
+                    print_msg "📦 安装 $package ..." $BLUE
+                    if ! .venv/bin/pip install "$package"; then
+                        print_msg "❌ $package 安装失败" $RED
+                        
+                        # 针对Pillow提供特殊诊断
+                        if [[ "$package" =~ ^Pillow ]]; then
+                            print_msg "💡 Pillow安装失败常见解决方案:" $CYAN
+                            if [[ "$OSTYPE" == "darwin"* ]]; then
+                                echo "  - 安装Xcode Command Line Tools: xcode-select --install"
+                                echo "  - 或安装完整Xcode开发工具"
+                            elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+                                echo "  - 安装编译依赖: sudo apt-get install python3-dev libjpeg-dev zlib1g-dev"
+                                echo "  - 或使用预编译wheel: pip install --only-binary=pillow Pillow"
+                            fi
+                        fi
+                    else
+                        print_msg "✅ $package 安装成功" $GREEN
+                    fi
+                fi
+            done < requirements.txt
+        fi
     fi
     
-    # 安装python-dotenv（如果未安装）
-    if ! .venv/bin/pip show python-dotenv &>/dev/null; then
-        print_msg "📦 安装python-dotenv..." $BLUE
-        .venv/bin/pip install python-dotenv -q
-    fi
+    # python-dotenv现在已包含在requirements.txt中，不需要单独检查
     
-    print_msg "✅ 依赖检查完成" $GREEN
+    if $install_failed; then
+        print_msg "⚠️ 部分依赖安装可能有问题，但将继续尝试启动" $YELLOW
+    else
+        print_msg "✅ 依赖检查完成" $GREEN
+    fi
 }
 
 # 配置环境文件
@@ -291,7 +394,7 @@ run_localtunnel() {
 
 # 显示帮助信息
 show_help() {
-    print_msg "🏠 飞书名片生成器 - 启动脚本 v2.1" $PURPLE
+    print_msg "🏠 飞书名片生成器 - 启动脚本 v2.2" $PURPLE
     echo "使用方法: ./start.sh [选项]"
     echo
     echo "选项:"
@@ -300,16 +403,24 @@ show_help() {
     echo "  3, local      - 本地开发模式 (仅本地测试)"
     echo "  -h, --help    - 显示此帮助信息"
     echo
+    echo "系统要求:"
+    echo "  - Python 3.9 - 3.13 (完全支持Python 3.13)"
+    echo "  - 基础工具: curl"
+    echo "  - macOS: Xcode Command Line Tools (Pillow编译)"
+    echo "  - Linux: gcc, python3-dev, python3-venv"
+    echo
     echo "功能特性:"
-    echo "  - 自动设置Python虚拟环境和依赖"
-    echo "  - ngrok模式: 稳定的HTTPS隧道 + Web控制台"
-    echo "  - localtunnel模式: 免费但不稳定的隧道"
-    echo "  - 本地模式: 仅在localhost:3000运行"
-    echo "  - 智能服务检测和自动重启"
+    echo "  - 🔍 智能系统依赖检查"
+    echo "  - 📦 自动设置Python虚拟环境和依赖"
+    echo "  - 🚀 Python 3.13优化支持"
+    echo "  - 🌐 ngrok模式: 稳定的HTTPS隧道 + Web控制台"
+    echo "  - 🌍 localtunnel模式: 免费但不稳定的隧道"
+    echo "  - 🏠 本地模式: 仅在localhost:3000运行"
+    echo "  - ⚡ 智能服务检测和错误诊断"
     echo
     echo "隧道工具对比:"
-    echo "  ngrok     - 稳定性90%+, 自动重连, Web界面"
-    echo "  localtunnel - 稳定性60%, 经常503错误"
+    echo "  ngrok     - 稳定性95%+, 自动重连, Web界面, HTTPS"
+    echo "  localtunnel - 稳定性60%, 经常503错误, 免费"
     echo
     echo "配置工具:"
     echo "  ./setup_ngrok.sh    - 配置ngrok认证token"
@@ -318,12 +429,18 @@ show_help() {
     echo "  ./local_test.py     - Python完整测试套件" 
     echo "  ./batch_test.sh     - 批量自动化测试"
     echo "  test_page.html      - 可视化测试界面"
+    echo
+    echo "故障排除:"
+    echo "  1. Pillow安装失败 → 安装编译工具或使用预编译wheel"
+    echo "  2. 虚拟环境创建失败 → 安装python3-venv"
+    echo "  3. 依赖版本冲突 → 删除.venv目录重新创建"
+    echo "  4. Python版本不支持 → 使用Python 3.9-3.13"
 }
 
 # 主函数
 main() {
     print_msg "🏠 飞书名片生成器启动工具" $PURPLE
-    print_msg "版本: 2.1 | 支持ngrok稳定隧道 + 本地开发" $CYAN
+    print_msg "版本: 2.2 | Python 3.13优化 + 智能依赖检查" $CYAN
     
     # 检查参数
     case "${1:-}" in
@@ -351,6 +468,7 @@ main() {
     esac
     
     # 基础检查
+    check_system_dependencies
     check_python
     setup_venv
     setup_env
