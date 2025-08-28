@@ -241,26 +241,12 @@ show_test_options() {
 run_local() {
     print_header "本地开发模式"
     
-    print_msg "🚀 启动Flask应用..." $BLUE
-    .venv/bin/python app.py &
-    FLASK_PID=$!
+    print_msg "🚀 启动Flask应用(前台模式，显示详细日志)..." $BLUE
+    print_msg "💡 你将看到所有请求的详细处理日志" $CYAN
+    print_msg "📋 包括: 请求解析、飞书API调用、图片生成等步骤\n" $YELLOW
     
-    if check_service; then
-        print_msg "🌐 本地访问地址:" $GREEN
-        echo "  - 健康检查: http://localhost:3000/healthz"  
-        echo "  - API端点: http://localhost:3000/hook"
-        
-        show_test_options
-        
-        print_msg "\n按 Ctrl+C 停止服务" $CYAN
-        
-        # 等待Flask进程
-        wait $FLASK_PID
-    else
-        print_msg "❌ Flask应用启动失败" $RED
-        cleanup
-        exit 1
-    fi
+    # 使用前台模式启动，添加Python无缓冲输出确保日志实时显示
+    PYTHONUNBUFFERED=1 .venv/bin/python app.py
 }
 
 # ngrok隧道模式
@@ -283,12 +269,18 @@ run_ngrok() {
         exit 1
     fi
     
-    print_msg "🚀 启动Flask应用..." $BLUE
-    .venv/bin/python app.py &
+    print_msg "🚀 启动Flask应用(后台模式，日志输出到文件)..." $BLUE
+    print_msg "💡 实时查看详细日志: tail -f flask.log" $CYAN
+    
+    # 使用后台模式启动，但将日志输出到文件便于查看
+    PYTHONUNBUFFERED=1 .venv/bin/python app.py > flask.log 2>&1 &
     FLASK_PID=$!
     
     if ! check_service; then
-        print_msg "❌ Flask应用启动失败" $RED
+        print_msg "❌ Flask应用启动失败，查看日志:" $RED
+        if [ -f "flask.log" ]; then
+            tail -20 flask.log
+        fi
         cleanup
         exit 1
     fi
@@ -326,6 +318,11 @@ run_ngrok() {
         echo "  - Webhook地址: https://你的域名.ngrok.io/hook"
     fi
     
+    print_msg "\n📋 日志查看:" $PURPLE
+    echo "  - 实时Flask日志: tail -f flask.log"
+    echo "  - ngrok连接日志: 显示在上方终端"
+    echo "  - 详细请求日志: 包含JSON解析、飞书API调用等"
+    
     print_msg "\n✨ ngrok优势:" $GREEN
     echo "  ✅ 稳定性高，自动重连"
     echo "  ✅ 支持HTTPS和Web控制台" 
@@ -353,12 +350,18 @@ run_localtunnel() {
     
     print_msg "⚠️ 注意: localtunnel稳定性较差，建议优先使用ngrok" $YELLOW
     
-    print_msg "🚀 启动Flask应用..." $BLUE
-    .venv/bin/python app.py &
+    print_msg "🚀 启动Flask应用(后台模式，日志输出到文件)..." $BLUE
+    print_msg "💡 实时查看详细日志: tail -f flask.log" $CYAN
+    
+    # 使用后台模式启动，但将日志输出到文件便于查看
+    PYTHONUNBUFFERED=1 .venv/bin/python app.py > flask.log 2>&1 &
     FLASK_PID=$!
     
     if ! check_service; then
-        print_msg "❌ Flask应用启动失败" $RED
+        print_msg "❌ Flask应用启动失败，查看日志:" $RED
+        if [ -f "flask.log" ]; then
+            tail -20 flask.log
+        fi
         cleanup
         exit 1
     fi
@@ -377,6 +380,11 @@ run_localtunnel() {
     echo "  - 本地地址: http://localhost:3000"
     echo "  - 公网地址: 请查看上方localtunnel输出"
     echo "  - Webhook地址: https://你的域名.loca.lt/hook"
+    
+    print_msg "\n📋 日志查看:" $PURPLE
+    echo "  - 实时Flask日志: tail -f flask.log"
+    echo "  - localtunnel连接日志: 显示在上方终端"
+    echo "  - 详细请求日志: 包含JSON解析、飞书API调用等"
     
     print_msg "\n⚠️ 重要提示:" $YELLOW  
     echo "  1. 复制上方显示的公网地址"
