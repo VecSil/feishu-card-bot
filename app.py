@@ -593,12 +593,12 @@ def generate_card(user: Dict[str, Any]) -> tuple[bytes, str]:
     # 兴趣爱好区域 - 紧贴"兴趣爱好/在做的创业项目"标签下方
     interests_x = int(W * 0.08)
     interests_y = int(H * 0.58)  # 紧贴标签下方，大幅向上调整
-    interests_width = int(W * 1.2)  # 可用宽度
+    interests_width = int(W * 0.8)  # 可用宽度
     
     # 一句话介绍区域 - 紧贴"一句话介绍你自己"标签下方  
     intro_x = int(W * 0.08)
     intro_y = int(H * 0.87)    # 紧贴标签下方，避免重合
-    intro_width = int(W * 1.2) # 可用宽度
+    intro_width = int(W * 0.8) # 可用宽度
     
     # 微信二维码区域 - 精确覆盖图片！
     qr_x = int(W * 0.67)        
@@ -627,7 +627,7 @@ def generate_card(user: Dict[str, Any]) -> tuple[bytes, str]:
         
         lines = wrapped_interests.split('\n')
         for i, line in enumerate(lines):
-            line_y = interests_y + i * int(90 * scale_factor)  # 增加行间距
+            line_y = interests_y + i * int(70 * scale_factor)  # 增加行间距
             draw.text((interests_x, line_y), line, font=content_font, fill="#3B536A")
     
     # 5. 一句话介绍（多行文本）- 使用专用字体
@@ -638,7 +638,7 @@ def generate_card(user: Dict[str, Any]) -> tuple[bytes, str]:
         
         lines = wrapped_intro.split('\n')
         for i, line in enumerate(lines):
-            line_y = intro_y + i * int(90 * scale_factor)  # 增加行间距
+            line_y = intro_y + i * int(70 * scale_factor)  # 增加行间距
             draw.text((intro_x, line_y), line, font=intro_font, fill="#34495E")
     
     # 6. 微信二维码（保持原图比例，不裁剪）

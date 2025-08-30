@@ -3,72 +3,179 @@
 [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:3000
- * Running on http://192.168.1.4:3000
+ * Running on http://192.168.15.126:3000
 [33mPress CTRL+C to quit[0m
  * Restarting with stat
  * Debugger is active!
  * Debugger PIN: 554-216-177
-127.0.0.1 - - [28/Aug/2025 19:42:27] "GET /healthz HTTP/1.1" 200 -
-[2025-08-28 19:48:56] INFO: 🔍 收到请求: POST http://768d291319db.ngrok-free.app/hook
-[2025-08-28 19:48:56] INFO: 📋 请求头: {'Host': '768d291319db.ngrok-free.app', 'User-Agent': 'Go-http-client/2.0', 'Content-Length': '265', 'Accept-Encoding': 'gzip', 'Authorization': 'Bearer t-g1048riHLIZ3LMHPFM5IWLMCLYDWDW2AH7K3QGJQ', 'Content-Type': 'application/json', 'X-Base-Automation-Ua': 'automation/1.0.0', 'X-Forwarded-For': '101.126.59.7', 'X-Forwarded-Host': '768d291319db.ngrok-free.app', 'X-Forwarded-Proto': 'https', 'X-Tt-Env': 'prod', 'X-Tt-Logid': '021756381734599fdbdfdbdfdbdfdbd00000000000001fc8e4163'}
-[2025-08-28 19:48:56] INFO: 🌐 客户端IP: 127.0.0.1
-[2025-08-28 19:48:56] INFO: 📝 Content-Type: application/json
-[2025-08-28 19:48:56] INFO: 📦 开始解析POST数据...
-[2025-08-28 19:48:56] INFO: ✅ JSON数据解析成功: 193 字符
-[2025-08-28 19:48:56] INFO: 🎯 解析后的payload: {
-  "nickname": " 飞鸟光11",
-  "gender": " 男",
-  "profession": " 转行的建筑学人",
-  "interests": "友念智能社交硬件 ",
-  "mbti": "INTJ ",
-  "introduction": " 良渚非著名闲云野鹤",
-  "wechatQrAttachmentId": "IKkUbBpWXoAbzGxkCrRch7yxn5q "
+127.0.0.1 - - [30/Aug/2025 23:51:34] "GET /healthz HTTP/1.1" 200 -
+[2025-08-30 23:52:47] INFO: 🔍 收到请求: POST http://bd1e8fb34ebf.ngrok-free.app/hook
+[2025-08-30 23:52:47] INFO: 📋 请求头: {'Host': 'bd1e8fb34ebf.ngrok-free.app', 'User-Agent': 'Go-http-client/2.0', 'Content-Length': '426', 'Accept-Encoding': 'gzip', 'Authorization': 'Bearer t-g1048riHLIZ3LMHPFM5IWLMCLYDWDW2AH7K3QGJQ', 'Content-Type': 'application/json', 'X-Base-Automation-Ua': 'automation/1.0.0', 'X-Forwarded-For': '123.58.10.238', 'X-Forwarded-Host': 'bd1e8fb34ebf.ngrok-free.app', 'X-Forwarded-Proto': 'https', 'X-Tt-Env': 'prod', 'X-Tt-Logid': '021756569165807fdbdfdbdfdbdfdbd0000000000000184390c54'}
+[2025-08-30 23:52:47] INFO: 🌐 客户端IP: 127.0.0.1
+[2025-08-30 23:52:47] INFO: 📝 Content-Type: application/json
+[2025-08-30 23:52:47] INFO: 📦 开始解析POST数据...
+[2025-08-30 23:52:47] INFO: ✅ JSON数据解析成功: 249 字符
+[2025-08-30 23:52:47] INFO: 🎯 解析后的payload: {
+  "nickname": " 小喵",
+  "gender": " 女",
+  "profession": " 双语戏剧导演",
+  "interests": "疗愈游戏，活动策划 ",
+  "mbti": "ENFP ",
+  "introduction": " 24年3月开始数字游民一年正在回上海准备工作的艺术生。目前正在研究游戏疗愈+叙事/隐喻转念，也在接公益个案~ 密室桌游狂热爱好者。🤩🤩🤩",
+  "wechatQrAttachmentId": "Hw8vb3DKEovnZdx67nLcB6xenvM "
 }
-[2025-08-28 19:48:56] INFO: 🔑 获取新的tenant_access_token...
-[2025-08-28 19:48:56] INFO: ✅ Token获取成功，有效期: 4706秒
-[2025-08-28 19:48:56] INFO: 🔍 开始获取微信二维码，attachment_id: IKkUbBpWXoAbzGxkCrRch7yxn5q
-[2025-08-28 19:48:56] INFO: 🧠 ID分析结果: 类型=bitable_attachment, 长度=27, 来源=multidimensional_table
-[2025-08-28 19:48:56] INFO: ✅ 尝试将attachment_id作为file_token使用媒体下载API
-[2025-08-28 19:48:56] INFO: 🔄 尝试下载API #1: https://open.feishu.cn/open-apis/drive/v1/medias/IKkUbBpWXoAbzGxkCrRch7yxn5q/download
-[2025-08-28 19:48:57] INFO: 📊 API #1 响应: HTTP 200, Content-Type: image/jpeg
-[2025-08-28 19:48:57] INFO: 📐 图片尺寸: (1920, 2560) (保持原始比例)
-[2025-08-28 19:48:57] INFO: ✅ 微信二维码获取成功！(API #1) - 原始比例保持
-[2025-08-28 19:48:59] INFO: Debug: 上传图片到飞书 - 图片大小: 2160933 bytes
-[2025-08-28 19:48:59] INFO: Debug: 修复参数格式 - image_type作为form-data字段
-[2025-08-28 19:49:01] INFO: Debug: 飞书API响应状态码: 200
-[2025-08-28 19:49:01] INFO: Debug: 飞书API响应内容: {"code":0,"data":{"image_key":"img_v3_02pj_20a214ef-a7e0-4439-9f0a-b9d7dde2d84g"},"msg":"success"}
-[2025-08-28 19:49:01] INFO: ✅ 优先使用飞书代理URL: https://768d291319db.ngrok-free.app/feishu-image/img_v3_02pj_20a214ef-a7e0-4439-9f0a-b9d7dde2d84g
-127.0.0.1 - - [28/Aug/2025 19:49:01] "POST /hook HTTP/1.1" 200 -
-[2025-08-28 19:51:53] INFO: 🔍 收到请求: POST http://768d291319db.ngrok-free.app/hook
-[2025-08-28 19:51:53] INFO: 📋 请求头: {'Host': '768d291319db.ngrok-free.app', 'User-Agent': 'Go-http-client/2.0', 'Content-Length': '242', 'Accept-Encoding': 'gzip', 'Authorization': 'Bearer t-g1048riHLIZ3LMHPFM5IWLMCLYDWDW2AH7K3QGJQ', 'Content-Type': 'application/json', 'X-Base-Automation-Ua': 'automation/1.0.0', 'X-Forwarded-For': '123.58.10.238', 'X-Forwarded-Host': '768d291319db.ngrok-free.app', 'X-Forwarded-Proto': 'https', 'X-Tt-Env': 'prod', 'X-Tt-Logid': '021756381911516fdbdfdbdfdbdfdbd0000000000000473a40d71'}
-[2025-08-28 19:51:53] INFO: 🌐 客户端IP: 127.0.0.1
-[2025-08-28 19:51:53] INFO: 📝 Content-Type: application/json
-[2025-08-28 19:51:53] INFO: 📦 开始解析POST数据...
-[2025-08-28 19:51:53] INFO: ✅ JSON数据解析成功: 184 字符
-[2025-08-28 19:51:53] INFO: 🎯 解析后的payload: {
-  "nickname": " 飞鸟光飞书号",
+[2025-08-30 23:52:47] INFO: 🔑 获取新的tenant_access_token...
+[2025-08-30 23:52:47] INFO: ✅ Token获取成功，有效期: 5437秒
+[2025-08-30 23:52:47] INFO: 🔍 开始获取微信二维码，attachment_id: Hw8vb3DKEovnZdx67nLcB6xenvM
+[2025-08-30 23:52:47] INFO: 🧠 ID分析结果: 类型=bitable_attachment, 长度=27, 来源=multidimensional_table
+[2025-08-30 23:52:47] INFO: ✅ 尝试将attachment_id作为file_token使用媒体下载API
+[2025-08-30 23:52:47] INFO: 🔄 尝试下载API #1: https://open.feishu.cn/open-apis/drive/v1/medias/Hw8vb3DKEovnZdx67nLcB6xenvM/download
+[2025-08-30 23:52:48] INFO: 📊 API #1 响应: HTTP 200, Content-Type: image/png
+[2025-08-30 23:52:48] INFO: 📐 图片尺寸: (1060, 1567) (保持原始比例)
+[2025-08-30 23:52:48] INFO: ✅ 微信二维码获取成功！(API #1) - 原始比例保持
+[2025-08-30 23:52:52] INFO: 🔍 收到请求: POST http://bd1e8fb34ebf.ngrok-free.app/hook
+[2025-08-30 23:52:52] INFO: 📋 请求头: {'Host': 'bd1e8fb34ebf.ngrok-free.app', 'User-Agent': 'Go-http-client/2.0', 'Content-Length': '347', 'Accept-Encoding': 'gzip', 'Authorization': 'Bearer t-g1048riHLIZ3LMHPFM5IWLMCLYDWDW2AH7K3QGJQ', 'Content-Type': 'application/json', 'X-Base-Automation-Ua': 'automation/1.0.0', 'X-Forwarded-For': '123.58.10.238', 'X-Forwarded-Host': 'bd1e8fb34ebf.ngrok-free.app', 'X-Forwarded-Proto': 'https', 'X-Tt-Env': 'prod', 'X-Tt-Logid': '021756569171240fdbdfdbdfdbdfdbd00000000000001723fce8f'}
+[2025-08-30 23:52:52] INFO: 🌐 客户端IP: 127.0.0.1
+[2025-08-30 23:52:52] INFO: 📝 Content-Type: application/json
+[2025-08-30 23:52:52] INFO: 📦 开始解析POST数据...
+[2025-08-30 23:52:52] INFO: ✅ JSON数据解析成功: 219 字符
+[2025-08-30 23:52:52] INFO: 🎯 解析后的payload: {
+  "nickname": " 老鹰",
   "gender": " 男",
-  "profession": " 学生",
-  "interests": "友念智能社交硬件 ",
-  "mbti": "INTJ ",
-  "introduction": " 偶尔发呆",
-  "wechatQrAttachmentId": "XpLTblHDdordp3xMhqAcCvHMnih "
+  "profession": " 环境监测硬件",
+  "interests": "禅修、瑜伽、户外（徒步）、各类运动，在学习缅甸语。 ",
+  "mbti": "ENFP ",
+  "introduction": " 好奇心强，成长型人格；有冒险精神；为人善良。",
+  "wechatQrAttachmentId": "ZKOab1wZ8ofVmRxdubXcAfKdnNh "
 }
-[2025-08-28 19:51:53] INFO: 🔍 开始获取微信二维码，attachment_id: XpLTblHDdordp3xMhqAcCvHMnih
-[2025-08-28 19:51:53] INFO: 🧠 ID分析结果: 类型=bitable_attachment, 长度=27, 来源=multidimensional_table
-[2025-08-28 19:51:53] INFO: ✅ 尝试将attachment_id作为file_token使用媒体下载API
-[2025-08-28 19:51:53] INFO: 🔄 尝试下载API #1: https://open.feishu.cn/open-apis/drive/v1/medias/XpLTblHDdordp3xMhqAcCvHMnih/download
-[2025-08-28 19:51:54] INFO: 📊 API #1 响应: HTTP 200, Content-Type: image/jpeg
-[2025-08-28 19:51:54] INFO: 📐 图片尺寸: (627, 574) (保持原始比例)
-[2025-08-28 19:51:54] INFO: ✅ 微信二维码获取成功！(API #1) - 原始比例保持
-[2025-08-28 19:51:56] INFO: Debug: 上传图片到飞书 - 图片大小: 1000192 bytes
-[2025-08-28 19:51:56] INFO: Debug: 修复参数格式 - image_type作为form-data字段
-[2025-08-28 19:51:57] INFO: Debug: 飞书API响应状态码: 200
-[2025-08-28 19:51:57] INFO: Debug: 飞书API响应内容: {"code":0,"data":{"image_key":"img_v3_02pj_a8e3fb33-a259-4521-8d50-12f6716c54bg"},"msg":"success"}
-[2025-08-28 19:51:57] INFO: ✅ 优先使用飞书代理URL: https://768d291319db.ngrok-free.app/feishu-image/img_v3_02pj_a8e3fb33-a259-4521-8d50-12f6716c54bg
-127.0.0.1 - - [28/Aug/2025 19:51:57] "POST /hook HTTP/1.1" 200 -
-[2025-08-28 19:52:19] INFO: 🔍 请求飞书图片: img_v3_02pj_a8e3fb33-a259-4521-8d50-12f6716c54bg
-[2025-08-28 19:52:19] INFO: 📥 从飞书获取图片: https://open.feishu.cn/open-apis/im/v1/images/img_v3_02pj_a8e3fb33-a259-4521-8d50-12f6716c54bg
-[2025-08-28 19:52:20] INFO: ✅ 飞书图片获取成功: 1000192 bytes
-127.0.0.1 - - [28/Aug/2025 19:52:20] "GET /feishu-image/img_v3_02pj_a8e3fb33-a259-4521-8d50-12f6716c54bg HTTP/1.1" 200 -
-127.0.0.1 - - [28/Aug/2025 19:52:29] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+[2025-08-30 23:52:52] INFO: 🔍 开始获取微信二维码，attachment_id: ZKOab1wZ8ofVmRxdubXcAfKdnNh
+[2025-08-30 23:52:52] INFO: 🧠 ID分析结果: 类型=bitable_attachment, 长度=27, 来源=multidimensional_table
+[2025-08-30 23:52:52] INFO: ✅ 尝试将attachment_id作为file_token使用媒体下载API
+[2025-08-30 23:52:52] INFO: 🔄 尝试下载API #1: https://open.feishu.cn/open-apis/drive/v1/medias/ZKOab1wZ8ofVmRxdubXcAfKdnNh/download
+[2025-08-30 23:52:53] INFO: Debug: 上传图片到飞书 - 图片大小: 1365880 bytes
+[2025-08-30 23:52:53] INFO: Debug: 修复参数格式 - image_type作为form-data字段
+[2025-08-30 23:52:53] INFO: 📊 API #1 响应: HTTP 200, Content-Type: image/jpeg
+[2025-08-30 23:52:53] INFO: 📐 图片尺寸: (1083, 909) (保持原始比例)
+[2025-08-30 23:52:53] INFO: ✅ 微信二维码获取成功！(API #1) - 原始比例保持
+[2025-08-30 23:52:54] INFO: Debug: 飞书API响应状态码: 200
+[2025-08-30 23:52:54] INFO: Debug: 飞书API响应内容: {"code":0,"data":{"image_key":"img_v3_02pl_d19bd3ae-b926-4744-956c-f045ac14aa6g"},"msg":"success"}
+[2025-08-30 23:52:54] INFO: ✅ 优先使用飞书代理URL: https://bd1e8fb34ebf.ngrok-free.app/feishu-image/img_v3_02pl_d19bd3ae-b926-4744-956c-f045ac14aa6g
+127.0.0.1 - - [30/Aug/2025 23:52:54] "POST /hook HTTP/1.1" 200 -
+[2025-08-30 23:52:57] INFO: Debug: 上传图片到飞书 - 图片大小: 1273647 bytes
+[2025-08-30 23:52:57] INFO: Debug: 修复参数格式 - image_type作为form-data字段
+[2025-08-30 23:52:58] INFO: Debug: 飞书API响应状态码: 200
+[2025-08-30 23:52:58] INFO: Debug: 飞书API响应内容: {"code":0,"data":{"image_key":"img_v3_02pl_d95ece2a-454b-4224-aa78-94158c869adg"},"msg":"success"}
+[2025-08-30 23:52:58] INFO: ✅ 优先使用飞书代理URL: https://bd1e8fb34ebf.ngrok-free.app/feishu-image/img_v3_02pl_d95ece2a-454b-4224-aa78-94158c869adg
+127.0.0.1 - - [30/Aug/2025 23:52:58] "POST /hook HTTP/1.1" 200 -
+[2025-08-30 23:53:04] INFO: 🔍 收到请求: POST http://bd1e8fb34ebf.ngrok-free.app/hook
+[2025-08-30 23:53:04] INFO: 📋 请求头: {'Host': 'bd1e8fb34ebf.ngrok-free.app', 'User-Agent': 'Go-http-client/2.0', 'Content-Length': '448', 'Accept-Encoding': 'gzip', 'Authorization': 'Bearer t-g1048riHLIZ3LMHPFM5IWLMCLYDWDW2AH7K3QGJQ', 'Content-Type': 'application/json', 'X-Base-Automation-Ua': 'automation/1.0.0', 'X-Forwarded-For': '123.58.10.238', 'X-Forwarded-Host': 'bd1e8fb34ebf.ngrok-free.app', 'X-Forwarded-Proto': 'https', 'X-Tt-Env': 'prod', 'X-Tt-Logid': '021756569182876fdbdfdbdfdbdfdbd00000000000001722b4fcc'}
+[2025-08-30 23:53:04] INFO: 🌐 客户端IP: 127.0.0.1
+[2025-08-30 23:53:04] INFO: 📝 Content-Type: application/json
+[2025-08-30 23:53:04] INFO: 📦 开始解析POST数据...
+[2025-08-30 23:53:04] INFO: ✅ JSON数据解析成功: 262 字符
+[2025-08-30 23:53:04] INFO: 🎯 解析后的payload: {
+  "nickname": " Sydelle",
+  "gender": " 女",
+  "profession": " 爱的语言模式疗愈师/外语研究者",
+  "interests": "爱的语言模式疗愈 | 疗愈空间 | 外语学习力教练 ",
+  "mbti": "INFJ ",
+  "introduction": " 正在协助国人有效习得意法英语言本质、协助中国亲密关系习得爱的语言模式疗愈性沟通。语言和音乐都是爱的流动",
+  "wechatQrAttachmentId": "Nyyob3MD8o7iIPxskL4cW4nBnnf "
+}
+[2025-08-30 23:53:04] INFO: 🔍 开始获取微信二维码，attachment_id: Nyyob3MD8o7iIPxskL4cW4nBnnf
+[2025-08-30 23:53:04] INFO: 🧠 ID分析结果: 类型=bitable_attachment, 长度=27, 来源=multidimensional_table
+[2025-08-30 23:53:04] INFO: ✅ 尝试将attachment_id作为file_token使用媒体下载API
+[2025-08-30 23:53:04] INFO: 🔄 尝试下载API #1: https://open.feishu.cn/open-apis/drive/v1/medias/Nyyob3MD8o7iIPxskL4cW4nBnnf/download
+[2025-08-30 23:53:05] INFO: 📊 API #1 响应: HTTP 200, Content-Type: image/jpeg
+[2025-08-30 23:53:05] INFO: 📐 图片尺寸: (1146, 1527) (保持原始比例)
+[2025-08-30 23:53:05] INFO: ✅ 微信二维码获取成功！(API #1) - 原始比例保持
+[2025-08-30 23:53:08] INFO: 🔍 收到请求: POST http://bd1e8fb34ebf.ngrok-free.app/hook
+[2025-08-30 23:53:08] INFO: 📋 请求头: {'Host': 'bd1e8fb34ebf.ngrok-free.app', 'User-Agent': 'Go-http-client/2.0', 'Content-Length': '321', 'Accept-Encoding': 'gzip', 'Authorization': 'Bearer t-g1048riHLIZ3LMHPFM5IWLMCLYDWDW2AH7K3QGJQ', 'Content-Type': 'application/json', 'X-Base-Automation-Ua': 'automation/1.0.0', 'X-Forwarded-For': '123.58.10.238', 'X-Forwarded-Host': 'bd1e8fb34ebf.ngrok-free.app', 'X-Forwarded-Proto': 'https', 'X-Tt-Env': 'prod', 'X-Tt-Logid': '021756569186389fdbdfdbdfdbdfdbd00000000000002badeb62c'}
+[2025-08-30 23:53:08] INFO: 🌐 客户端IP: 127.0.0.1
+[2025-08-30 23:53:08] INFO: 📝 Content-Type: application/json
+[2025-08-30 23:53:08] INFO: 📦 开始解析POST数据...
+[2025-08-30 23:53:08] INFO: ✅ JSON数据解析成功: 221 字符
+[2025-08-30 23:53:08] INFO: 🎯 解析后的payload: {
+  "nickname": " Sydelle",
+  "gender": " 女",
+  "profession": " 外语语言疗愈",
+  "interests": "外语 | 爱的语言模式 ",
+  "mbti": "INFJ ",
+  "introduction": " 心关系疗愈空间 | 外语研究 | 爱的语言模式荣获国家版权专业认证",
+  "wechatQrAttachmentId": "ANMZb68epo10SUxEZQmczsvQnfb "
+}
+[2025-08-30 23:53:08] INFO: 🔍 开始获取微信二维码，attachment_id: ANMZb68epo10SUxEZQmczsvQnfb
+[2025-08-30 23:53:08] INFO: 🧠 ID分析结果: 类型=bitable_attachment, 长度=27, 来源=multidimensional_table
+[2025-08-30 23:53:08] INFO: ✅ 尝试将attachment_id作为file_token使用媒体下载API
+[2025-08-30 23:53:08] INFO: 🔄 尝试下载API #1: https://open.feishu.cn/open-apis/drive/v1/medias/ANMZb68epo10SUxEZQmczsvQnfb/download
+[2025-08-30 23:53:08] INFO: 📊 API #1 响应: HTTP 200, Content-Type: image/jpeg
+[2025-08-30 23:53:08] INFO: 📐 图片尺寸: (1146, 1527) (保持原始比例)
+[2025-08-30 23:53:08] INFO: ✅ 微信二维码获取成功！(API #1) - 原始比例保持
+[2025-08-30 23:53:09] INFO: Debug: 上传图片到飞书 - 图片大小: 1453686 bytes
+[2025-08-30 23:53:09] INFO: Debug: 修复参数格式 - image_type作为form-data字段
+[2025-08-30 23:53:11] INFO: Debug: 飞书API响应状态码: 200
+[2025-08-30 23:53:11] INFO: Debug: 飞书API响应内容: {"code":0,"data":{"image_key":"img_v3_02pl_fafb206e-90fb-4a81-84af-fd1ee4a5ddbg"},"msg":"success"}
+[2025-08-30 23:53:11] INFO: ✅ 优先使用飞书代理URL: https://bd1e8fb34ebf.ngrok-free.app/feishu-image/img_v3_02pl_fafb206e-90fb-4a81-84af-fd1ee4a5ddbg
+127.0.0.1 - - [30/Aug/2025 23:53:11] "POST /hook HTTP/1.1" 200 -
+[2025-08-30 23:53:12] INFO: Debug: 上传图片到飞书 - 图片大小: 1277342 bytes
+[2025-08-30 23:53:12] INFO: Debug: 修复参数格式 - image_type作为form-data字段
+[2025-08-30 23:53:12] INFO: 🔍 收到请求: POST http://bd1e8fb34ebf.ngrok-free.app/hook
+[2025-08-30 23:53:12] INFO: 📋 请求头: {'Host': 'bd1e8fb34ebf.ngrok-free.app', 'User-Agent': 'Go-http-client/2.0', 'Content-Length': '320', 'Accept-Encoding': 'gzip', 'Authorization': 'Bearer t-g1048riHLIZ3LMHPFM5IWLMCLYDWDW2AH7K3QGJQ', 'Content-Type': 'application/json', 'X-Base-Automation-Ua': 'automation/1.0.0', 'X-Forwarded-For': '101.126.59.9', 'X-Forwarded-Host': 'bd1e8fb34ebf.ngrok-free.app', 'X-Forwarded-Proto': 'https', 'X-Tt-Env': 'prod', 'X-Tt-Logid': '021756569191267fdbdfdbdfdbdfdbd000000000000049675c9d3'}
+[2025-08-30 23:53:12] INFO: 🌐 客户端IP: 127.0.0.1
+[2025-08-30 23:53:12] INFO: 📝 Content-Type: application/json
+[2025-08-30 23:53:12] INFO: 📦 开始解析POST数据...
+[2025-08-30 23:53:12] INFO: ✅ JSON数据解析成功: 210 字符
+[2025-08-30 23:53:12] INFO: 🎯 解析后的payload: {
+  "nickname": " 韩韩",
+  "gender": " 男",
+  "profession": " 文化发展",
+  "interests": "文化贸易和演出活动 ",
+  "mbti": "ENTP ",
+  "introduction": " 在杭会关注艺术展览活动和户外运动，兴趣相同的伙伴可以认识一下。",
+  "wechatQrAttachmentId": "T3Rqbq48UoT97cxY2xCcoi8OnEf "
+}
+[2025-08-30 23:53:12] INFO: 🔍 开始获取微信二维码，attachment_id: T3Rqbq48UoT97cxY2xCcoi8OnEf
+[2025-08-30 23:53:12] INFO: 🧠 ID分析结果: 类型=bitable_attachment, 长度=27, 来源=multidimensional_table
+[2025-08-30 23:53:12] INFO: ✅ 尝试将attachment_id作为file_token使用媒体下载API
+[2025-08-30 23:53:12] INFO: 🔄 尝试下载API #1: https://open.feishu.cn/open-apis/drive/v1/medias/T3Rqbq48UoT97cxY2xCcoi8OnEf/download
+[2025-08-30 23:53:13] INFO: 📊 API #1 响应: HTTP 200, Content-Type: image/png
+[2025-08-30 23:53:13] INFO: 📐 图片尺寸: (950, 1296) (保持原始比例)
+[2025-08-30 23:53:13] INFO: ✅ 微信二维码获取成功！(API #1) - 原始比例保持
+[2025-08-30 23:53:14] INFO: Debug: 飞书API响应状态码: 200
+[2025-08-30 23:53:14] INFO: Debug: 飞书API响应内容: {"code":0,"data":{"image_key":"img_v3_02pl_b67d0693-85ea-4eea-88e3-2463c459335g"},"msg":"success"}
+[2025-08-30 23:53:14] INFO: ✅ 优先使用飞书代理URL: https://bd1e8fb34ebf.ngrok-free.app/feishu-image/img_v3_02pl_b67d0693-85ea-4eea-88e3-2463c459335g
+127.0.0.1 - - [30/Aug/2025 23:53:14] "POST /hook HTTP/1.1" 200 -
+[2025-08-30 23:53:16] INFO: Debug: 上传图片到飞书 - 图片大小: 1229072 bytes
+[2025-08-30 23:53:16] INFO: Debug: 修复参数格式 - image_type作为form-data字段
+[2025-08-30 23:53:18] INFO: Debug: 飞书API响应状态码: 200
+[2025-08-30 23:53:18] INFO: Debug: 飞书API响应内容: {"code":0,"data":{"image_key":"img_v3_02pl_3b9c1bdd-c5f7-4eee-bdd5-4ec548362bdg"},"msg":"success"}
+[2025-08-30 23:53:18] INFO: ✅ 优先使用飞书代理URL: https://bd1e8fb34ebf.ngrok-free.app/feishu-image/img_v3_02pl_3b9c1bdd-c5f7-4eee-bdd5-4ec548362bdg
+127.0.0.1 - - [30/Aug/2025 23:53:18] "POST /hook HTTP/1.1" 200 -
+[2025-08-31 00:16:55] INFO: 🔍 收到请求: POST http://bd1e8fb34ebf.ngrok-free.app/hook
+[2025-08-31 00:16:55] INFO: 📋 请求头: {'Host': 'bd1e8fb34ebf.ngrok-free.app', 'User-Agent': 'Go-http-client/2.0', 'Content-Length': '342', 'Accept-Encoding': 'gzip', 'Authorization': 'Bearer t-g1048riHLIZ3LMHPFM5IWLMCLYDWDW2AH7K3QGJQ', 'Content-Type': 'application/json', 'X-Base-Automation-Ua': 'automation/1.0.0', 'X-Forwarded-For': '123.58.10.238', 'X-Forwarded-Host': 'bd1e8fb34ebf.ngrok-free.app', 'X-Forwarded-Proto': 'https', 'X-Tt-Env': 'prod', 'X-Tt-Logid': '021756570614007fdbdfdbdfdbdfdbd0000000000000172a64c4f'}
+[2025-08-31 00:16:55] INFO: 🌐 客户端IP: 127.0.0.1
+[2025-08-31 00:16:55] INFO: 📝 Content-Type: application/json
+[2025-08-31 00:16:55] INFO: 📦 开始解析POST数据...
+[2025-08-31 00:16:55] INFO: ✅ JSON数据解析成功: 224 字符
+[2025-08-31 00:16:55] INFO: 🎯 解析后的payload: {
+  "nickname": " 游戏开发乾乾",
+  "gender": " 男",
+  "profession": " 创始人&CEO",
+  "interests": "可爱猫猫狗狗游戏开发~ ",
+  "mbti": "ENTJ ",
+  "introduction": " 23年清华跳级毕业，拿到天使轮创业做游戏公司\n最近做互动影游~欢迎交流",
+  "wechatQrAttachmentId": "LpK8bTC6lo7RXOxsUEPcBJvMnxe "
+}
+[2025-08-31 00:16:55] INFO: 🔍 开始获取微信二维码，attachment_id: LpK8bTC6lo7RXOxsUEPcBJvMnxe
+[2025-08-31 00:16:55] INFO: 🧠 ID分析结果: 类型=bitable_attachment, 长度=27, 来源=multidimensional_table
+[2025-08-31 00:16:55] INFO: ✅ 尝试将attachment_id作为file_token使用媒体下载API
+[2025-08-31 00:16:55] INFO: 🔄 尝试下载API #1: https://open.feishu.cn/open-apis/drive/v1/medias/LpK8bTC6lo7RXOxsUEPcBJvMnxe/download
+[2025-08-31 00:16:56] INFO: 📊 API #1 响应: HTTP 200, Content-Type: image/jpeg
+[2025-08-31 00:16:56] INFO: 📐 图片尺寸: (1146, 1527) (保持原始比例)
+[2025-08-31 00:16:56] INFO: ✅ 微信二维码获取成功！(API #1) - 原始比例保持
+[2025-08-31 00:16:59] INFO: Debug: 上传图片到飞书 - 图片大小: 1401637 bytes
+[2025-08-31 00:16:59] INFO: Debug: 修复参数格式 - image_type作为form-data字段
+[2025-08-31 00:17:01] INFO: Debug: 飞书API响应状态码: 200
+[2025-08-31 00:17:01] INFO: Debug: 飞书API响应内容: {"code":0,"data":{"image_key":"img_v3_02pm_1c51d1cb-b803-4e77-86de-a52b689f89eg"},"msg":"success"}
+[2025-08-31 00:17:01] INFO: ✅ 优先使用飞书代理URL: https://bd1e8fb34ebf.ngrok-free.app/feishu-image/img_v3_02pm_1c51d1cb-b803-4e77-86de-a52b689f89eg
+127.0.0.1 - - [31/Aug/2025 00:17:01] "POST /hook HTTP/1.1" 200 -
